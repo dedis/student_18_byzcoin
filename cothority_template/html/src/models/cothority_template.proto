@@ -1,0 +1,15 @@
+message ClockRequest {
+    required Roster Roster = 1;
+}
+
+message ClockResponse {
+    required double Time = 1;
+    required sint32 Children = 2;
+}
+
+message CountRequest {
+}
+
+message CountResponse {
+    required sint32 Count = 1;
+}

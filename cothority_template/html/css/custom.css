@@ -1,0 +1,79 @@
+#main h3 {
+    font-size: 12pt;
+    text-transform: none;
+    letter-spacing: 1px;
+}
+
+#main a {
+    text-decoration: underline;
+}
+
+#main p {
+    /*font-size: 12px;*/
+    text-transform: none;
+    letter-spacing: 1px;
+}
+
+.box{
+    margin-left: auto;
+    margin-right: auto;
+    max-width: 25em;
+    text-transform: none;
+    letter-spacing: 1px;
+    text-align: left;
+}
+
+.box h2 {
+    text-align: center;
+}
+
+.box a {
+    text-decoration: underline;
+}
+
+.center {
+    text-align: center;
+}
+
+.disclaimer {
+    font-size: 7pt;
+    max-width: 35em;
+}
+
+pre {
+    font-family: monospace;
+    font-size: 12px;
+    background-color: #f0f0f0;
+    padding: 10px 0px 10px 20px;
+}
+
+#rand_value pre {
+    padding: 10px 0px 10px 0px;
+}
+
+textarea {
+    color: #414f57;
+    font-family: monospace;
+    font-size: 12pt;
+    font-weight: 100;
+    line-height: 1.1;
+    letter-spacing: 0em;
+    text-transform: none;
+}
+
+@media screen and (max-width: 1680px) {
+
+    textarea {
+        font-size: 11pt;
+    }
+
+}
+
+@media screen and (max-width: 480px) {
+
+    textarea {
+        font-size: 10pt;
+        line-height: 1.75;
+    }
+
+}

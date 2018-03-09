@@ -1,0 +1,179 @@
+<!DOCTYPE HTML>
+
+<html>
+<head>
+    <meta name="generator" content="Hugo 0.18.1"/>
+    <title>CothorityTemplate - starting your own cothority</title>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+
+    <link rel="stylesheet" href="css/main.css"/>
+    <link rel="stylesheet" href="css/custom.css"/>
+    <link rel="stylesheet" href="css/progress.css"/>
+
+
+    <script src="js/protobuf.min.js"></script>
+    <script src="js/jquery.min.js"></script>
+    <script src="js/moment.min.js"></script>
+    <script src="js/topl.min.js"></script>
+    <script src="js/uuid.min.js"></script>
+    <script src="js/bundle.js"></script>
+    <noscript>
+        <link rel="stylesheet" href="css/noscript.css"/>
+    </noscript>
+    <script>
+        var getting_clock = false;
+        var getting_count = false;
+        var getting_status = false;
+        var sockClock;
+        var sockCount;
+        var sockStatus;
+        var servers;
+
+        function updateServers(){
+            servers = CothorityProtobuf.toml_to_roster($('textarea#servers').val());
+            if (jQuery.isEmptyObject(servers)) {
+                alert("Please copy/paste a correct public.toml-file");
+                return false;
+            }
+            return true;
+        }
+
+        function getClock() {
+            if (getting_clock) {
+                console.log("waiting for clock");
+                return;
+            }
+            if (!updateServers()){
+                return;
+            }
+            getting_clock = true;
+
+            sockClock = CothorityProtobuf.createSocket(sockClock,
+                CothorityProtobuf.si_to_ws(servers.servers[0], "/Template/ClockRequest"),
+                CothorityProtobuf.createClockRequest(servers.servers),
+                function(msg){
+                    var reply = CothorityProtobuf.decodeClockResponse(msg);
+                    $("#clock_time").text(reply.Time);
+                    $("#clock_children").text(reply.Children);
+                    getting_clock = false;
+                },
+                function (e) {
+                    console.log("error while waiting for reply: " + e);
+                    getting_clock = false;
+                });
+        }
+
+        function getCount() {
+            if (getting_count) {
+                console.log("waiting for count");
+                return;
+            }
+            if (!updateServers()){
+                return;
+            }
+            getting_count = true;
+
+            sockCount = CothorityProtobuf.createSocket(sockCount,
+                CothorityProtobuf.si_to_ws(servers.servers[0], "/Template/CountRequest"),
+            CothorityProtobuf.createCountRequest(),
+            function(msg){
+                var reply = CothorityProtobuf.decodeCountResponse(msg);
+                $("#count").text(reply.Count);
+                getting_count = false;
+            },
+            function(e){
+                console.log("error:" + event);
+                getting_count = false;
+            })
+        }
+
+        function getStatus() {
+            if (getting_status) {
+                console.log("waiting for status");
+                return;
+            }
+            if (!updateServers()){
+                return;
+            }
+            getting_status = true;
+
+            sockStatus = CothorityProtobuf.createSocket(sockStatus,
+                CothorityProtobuf.si_to_ws(servers.servers[0], "/Status/Request"),
+            CothorityProtobuf.createStatusRequest(),
+            function(msg){
+                var reply = CothorityProtobuf.decodeStatusResponse(msg);
+                $("#status").text(reply.Status);
+                getting_status = false;
+            },
+            function(e){
+                console.log("error:" + event);
+                getting_status = false;
+            })
+        }
+
+    </script>
+</head>
+<body class="is-loading">
+<div id="wrapper">
+    <section id="main">
+        <header>
+            <h1>Cothority Template</h1>
+            <h3>Introduction to the onet/cothority-framework</h3>
+        </header>
+        <hr/>
+        <div class="box">
+
+            <h2>Interaction</h2>
+            <div class="center">
+                <div>Servers</div>
+                <textarea id="servers" rows="10" columns="80">Copy/Paste the public.toml file here</textarea>
+            </div>
+            <div class="center">
+                <div>Clock-time: <span id="clock_time"></span></div>
+                <div>Clock-children: <span id="clock_children"></span></div>
+            </div>
+            <div class="center">
+                <div>Counter: <span id="count"></span></div>
+            </div>
+            <div class="center">
+                <div>Status: <span id="status"></span></div>
+            </div>
+            <br>
+            <div class="center">
+                <ul class="icons">
+                    <li><a onclick="getClock();" class="fa-clock-o"></a>GetClock</li>
+                    <li><a onclick="getCount();" class="fa-bar-chart"></a>GetCount</li>
+                    <li><a onclick="getStatus();" class="fa-check"></a>GetStatus</li>
+                </ul>
+            </div>
+        </div>
+
+        <hr/>
+        <div class="box">
+            <h2>Cothority template</h2>
+            <p>To use this webpage, you need to run at least three conodes:</p>
+            <pre><code>cd $GOPATH/src/github.com/dedis/cothority_template<br/>./conode/run_conode.sh local 3</code></pre>
+        </div>
+        <hr/>
+    </section>
+
+    <footer id="footer">
+        <ul class="copyright">
+            <li>Created with <span class="icon fa-heart"></span> by <a
+                    href="http://dedis.epfl.ch">dedis.epfl.ch</a> </span> </li>
+            <li>Design by <a href="http://html5up.net">HTML5 UP</a></li>
+            <li>Image by <a href="https://unsplash.com/photos/IEHPDNk2-8w">Unsplash</a></li>
+        </ul>
+    </footer>
+</div>
+<script>
+    if ('addEventListener' in window) {
+        window.addEventListener('load', function () {
+            document.body.className = document.body.className.replace(/\bis-loading\b/, '');
+        });
+        document.body.className += (navigator.userAgent.match(/(MSIE|rv:11\.0)/) ? ' is-ie' : '');
+    }
+</script>
+</body>
+</html>

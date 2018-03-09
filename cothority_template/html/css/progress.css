@@ -1,0 +1,24 @@
+#progressbar {
+    width: 100%;
+    height: 12px;
+    background-color: #eee;
+    padding: 2px;
+    margin: .6em 0;
+    border: 1px #000 double;
+    clear: both;
+}
+
+.progress {
+    background: #555555; /*-- Color of the bar --*/
+    height: 5px;
+    width: 0%;
+    max-width: 100%;
+    float: left;
+    animation: progress linear 30s 1 forwards;
+}
+
+@keyframes progress {
+    from { }
+
+    to { width: 100% }
+}

@@ -1,0 +1,6 @@
+
+message Roster {
+    optional bytes Id = 1;
+    repeated ServerIdentity List = 2;
+    optional bytes Aggregate = 3;
+}

@@ -1,0 +1,7 @@
+# This file contains your private key.
+# Do not give it away lightly!
+Suite = "Ed25519"
+Public = "4c4d5dd6fa750d5fb32f005b0a357a39d3886454d9fe63255a89ef0542f835d9"
+Private = "5c816924b82df5635292ca200888a6c0fe6f0be03356d2111cc9740834b33503"
+Address = "tcp://localhost:15006"
+Description = "Conode_3"
