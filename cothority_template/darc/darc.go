@@ -1,9 +1,11 @@
 /*
-Package darc in most of our projects we need some kind of access control to protect resources. Instead of having a simple password
+Package darc in most of our projects we need some kind of access control to 
+protect resources. Instead of having a simple password
 or public key for authentication, we want to have access control that can be:
 evolved with a threshold number of keys
 be delegated
-So instead of having a fixed list of identities that are allowed to access a resource, the goal is to have an evolving
+So instead of having a fixed list of identities that are allowed to access a
+resource, the goal is to have an evolving
 description of who is allowed or not to access a certain resource.
 */
 package darc
@@ -746,8 +748,10 @@ func FindAllPaths(subjects []*Subject, requester *Subject, darcs map[string]*Dar
 	}
 }
 
-// NewEd25519Signer initializes a new Ed25519Signer given a public and private keys.
-// If any of the given values is nil or both are nil, then a new key pair is generated.
+// NewEd25519Signer initializes a new Ed25519Signer given a public and private 
+// keys.
+// If any of the given values is nil or both are nil, then a new key pair is 
+// generated.
 func NewEd25519Signer(point abstract.Point, secret abstract.Scalar) *Ed25519Signer {
 	if point == nil || secret == nil {
 		kp := config.NewKeyPair(network.Suite)
