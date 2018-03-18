@@ -19,7 +19,8 @@ import (
 	"github.com/dedis/kyber"
 	"github.com/dedis/kyber/sign/schnorr"
 	"github.com/dedis/kyber/util/key"
-	"github.com/dedis/lleap"
+	"github.com/dedis/student_18_omniledger/lleap"
+    "github.com/dedis/student_18_omniledger/cothority_template/darc"
 	"github.com/dedis/onet"
 	"github.com/dedis/onet/log"
 	"github.com/dedis/onet/network"
@@ -55,10 +56,26 @@ type Service struct {
 // than one structure.
 const storageID = "main"
 
-// storage is used to save our data.
+type DarcBlock struct {
+    sync.Mutex
+    Latest *Data
+    Proposed *Data
+    LatestSkipblock *skipchain.SkipBlock
+}
+
+type Data struct {
+   Darc *darc.Darc
+   Roster *onet.Roster
+}
+
+// storage is used to save our data locally.
 type storage struct {
-	Identities map[string]*identity.IDBlock
+    // IDBlock stores one identity together with the latest and the currently
+    // proposed skipblock.
+    Identities map[string]*identity.IDBlock
+    // PL: Is used to sign the votes
 	Private    map[string]kyber.Scalar
+    // PL: Entities allowed to modify the data(-structure)?
 	Writers    map[string][]byte
 	sync.Mutex
 }
@@ -74,6 +91,11 @@ func (s *Service) CreateSkipchain(req *lleap.CreateSkipchain) (*lleap.CreateSkip
 	}
 
 	kp := key.NewKeyPair(cothority.Suite)
+    // get rid of identity here by using a struct which contains a DARC and
+    // some sort of kv store.
+    // Also adjust the structure of req *lleap.CreateSkipchain.
+    // And what is writer? The device allowed to modify the kv-store (as well
+    // the set of Devices)?
 	data := &identity.Data{
 		Threshold: 2,
 		Device:    map[string]*identity.Device{"service": &identity.Device{Point: kp.Public}},
@@ -84,6 +106,7 @@ func (s *Service) CreateSkipchain(req *lleap.CreateSkipchain) (*lleap.CreateSkip
 		data.Storage = map[string]string{"writer": string((*req.Writers)[0])}
 	}
 
+    // replace this by something interacting with skipchain directly
 	cir, err := s.idService().CreateIdentityInternal(&identity.CreateIdentity{
 		Data: data,
 	}, "", "")
@@ -91,6 +114,8 @@ func (s *Service) CreateSkipchain(req *lleap.CreateSkipchain) (*lleap.CreateSkip
 		return nil, err
 	}
 	gid := string(cir.Genesis.SkipChainID())
+    // if we modify data as described above, we can just use it here.
+    // we can still use the genesisblock, but the one from skipchain
 	s.storage.Identities[gid] = &identity.IDBlock{
 		Latest:          data,
 		LatestSkipblock: cir.Genesis,
@@ -117,6 +142,7 @@ func (s *Service) SetKeyValue(req *lleap.SetKeyValue) (*lleap.SetKeyValueRespons
 	if idb == nil || priv == nil {
 		return nil, errors.New("don't have this identity stored")
 	}
+    // PL: Does this check make sense? What if pub == nil?
 	if pub := s.storage.Writers[gid]; pub != nil {
 		log.Lvl1("Verifying signature")
 		public, err := x509.ParsePKIXPublicKey(pub)
@@ -151,6 +177,8 @@ func (s *Service) SetKeyValue(req *lleap.SetKeyValue) (*lleap.SetKeyValueRespons
 	prop.Storage[keyNewKey] = string(req.Key)
 	prop.Storage[keyNewValue] = string(req.Value)
 	// TODO: Should also store the signature.
+    // PL: What does this function do? What is the equivalent function to
+    // interface directly with skipchain?
 	_, err = s.idService().ProposeSend(&identity.ProposeSend{
 		ID:      identity.ID(req.SkipchainID),
 		Propose: prop,
@@ -167,6 +195,7 @@ func (s *Service) SetKeyValue(req *lleap.SetKeyValue) (*lleap.SetKeyValueRespons
 	if err != nil {
 		return nil, err
 	}
+    // See the PL above
 	resp, err := s.idService().ProposeVote(&identity.ProposeVote{
 		ID:        identity.ID(req.SkipchainID),
 		Signer:    "service",
@@ -214,6 +243,7 @@ func (s *Service) getCollection(id skipchain.SkipBlockID) *collectionDB {
 	return col
 }
 
+// interface to identity.Service
 func (s *Service) idService() *identity.Service {
 	return s.Service(identity.ServiceName).(*identity.Service)
 }
