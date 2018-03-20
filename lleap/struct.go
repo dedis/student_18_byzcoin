@@ -52,6 +52,8 @@ type CreateSkipchain struct {
 	Roster onet.Roster
 	// Writers represent keys that are allowed to add new key/value pairs to the skipchain.
 	// Writers *[][]byte
+    // this is the master darc which defines who is allowed to write to this 
+    // skipchain. we will only store its hash.
     Darc *darc.Darc
 	// Signature, if available, will have to include the nonce sent by cisc.
 	Signature *[]byte
