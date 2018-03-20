@@ -59,11 +59,13 @@ type Request struct {
 }
 
 type Signature struct {
+    Request Request
 	Signature []byte
 	Signer SubjectPK
 }
 
 type SignaturePath struct {
+    Request Request
 	Signature []byte
 	Signer SubjectPK
 	Path []int
