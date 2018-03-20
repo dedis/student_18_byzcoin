@@ -12,6 +12,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+    "time"
 
 	"github.com/dedis/cothority"
 	// "github.com/dedis/cothority/identity"
@@ -32,6 +33,8 @@ var lleapID onet.ServiceID
 const keyMerkleRoot = "merkleroot"
 const keyNewKey = "newkey"
 const keyNewValue = "newvalue"
+
+const darcBytes = []bytes("darc:")
 
 func init() {
 	var err error
@@ -58,9 +61,8 @@ const storageID = "main"
 
 type Data struct {
     // Darcs allowed to sign
-    Darcs map[string]*darc.Darc
+    MerkleRoot []byte
     Roster *onet.Roster
-    Votes map[string][]byte
     // Request represents the request which is sent by the client to update the
     // state of the skipchain. It contains information on which Darc and which
     // rule of that darc allow to perform the operation specified in message.
@@ -76,6 +78,7 @@ type Data struct {
     Requests []darc.Request
     // add this to the request struct itself
     DarcSig darc.Signature
+    Timestamp time.Time
 }
 
 type DarcBlock struct {
@@ -405,6 +408,7 @@ func (s *Service) VerifyBlock(sbID []byte, sb *skipchain.SkipBlock) bool {
         // added to the skipchain, whereas data is the data contained in the
         // skipblock to be added
 		dataLatest := dataInt.(*Data)
+        /*
 		sigCnt := 0
 		for drc, sig := range data.Votes {
 			if signer := dataLatest.Darcs[drc]; signer != nil {
@@ -415,13 +419,10 @@ func (s *Service) VerifyBlock(sbID []byte, sb *skipchain.SkipBlock) bool {
                 // The data in each skipblock should probably contain the darc
                 // and rule of the previous skipblock which allows for the
                 // operation from which the new block is the result
-                /*
                 if err := schnorr.Verify(s.Suite(), pub.Point, hash, sig); err == nil {
 					log.Lvl2("Found correct signature of device", dev)
 					sigCnt++
 				}
-                */
-                if err := drc.Verify()
 			} else {
 				log.Lvl2("Not representative signature detected:", dev)
 			}
@@ -430,6 +431,7 @@ func (s *Service) VerifyBlock(sbID []byte, sb *skipchain.SkipBlock) bool {
 			return nil
 		}
 		return errors.New("not enough signatures")
+        */
 	}()
 	if err != nil {
 		log.Lvl2("Error while validating block:", err)
@@ -437,3 +439,28 @@ func (s *Service) VerifyBlock(sbID []byte, sb *skipchain.SkipBlock) bool {
 	}
 	return true
 }
+
+func (darcs *collectionDB) findDarc (darcid darc.ID) (*darc.Darc, error) {
+    darcKey = append(darcBytes, darcid...)
+    d, err := darcs.Get(darcKey).Record()
+    if err != nil {
+        log.lvl2("Error while getting record from collection:", err)
+        return nil, err
+    }
+    if !d.Match() {
+        log.lvl2("No match found for darc key.", err)
+        return nil, errors.New("Could not find match.")
+    }
+    values := d.Values()
+    // TODO: Check the (unlikely) case that len(values) > 1
+    if len(values) < 1 {
+        log.lvl2("Empty slice for darcid:", darcKey)
+        return nil, errors.New("Found empty slice as value for darc key")
+    }
+    resultDarc, ok := values[0].(darc.Darc)
+    if !ok {
+        return nil, fmt.Errorf("got data-type %s", reflect.TypeOf(resultDarc))
+    }
+    return resultDarc, nil
+}
+
