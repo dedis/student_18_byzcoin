@@ -271,7 +271,8 @@ func EvaluateExpression(expression string, indexMap map[int]*Signature) (bool, e
 //For now, we just take a JSON expression and convert it into 
 // a string showing evaluation. This will be replaced by actual
 //evaluation when we introduce signatures
-func ProcessJson(raw interface{}, indexMap map[int]*Signature, evaluation bool) (bool, error) {
+func ProcessJson(raw interface{}, indexMap map[int]*Signature,
+                    evaluation bool) (bool, error) {
 	m := raw.(map[string]interface{})
 	for k, v := range(m) {
 		switch vv := v.(type) {
@@ -385,7 +386,7 @@ func (s *Signer) Sign(req *Request) (*Signature, error) {
 		}
 		signature, _ := sign.Schnorr(ed25519.NewAES128SHA256Ed25519(false), key, b)
 		signer := &SubjectPK{Point: pub}
-		return &Signature{Signature: signature, Signer: *signer}, nil
+        return &Signature{Signature: signature, Signer: *signer, Request: req}, nil
 	}
 	return nil, errors.New("signer is of unknown type")
 }
@@ -410,11 +411,15 @@ func (s *Signer) SignWithPath(req *Request, path []int) (*SignaturePath, error) 
 		}
 		signature, _ := sign.Schnorr(ed25519.NewAES128SHA256Ed25519(false), key, b)
 		signer := &SubjectPK{Point: pub}
-		return &SignaturePath{Signature: signature, Signer: *signer, Path: path}, nil
+        // TODO: Include request in signature
+		return &SignaturePath{Signature: signature, Signer: *signer, 
+                    Path: path, Request: req}, nil
 	}
 	return nil, errors.New("signer is of unknown type")
 }
 
+// TODO: Maybe write a wrapper for that function which just signs with the 
+// first path it finds.
 func (s *Signer) SignWithPathCheck(req *Request, darcs map[string]*Darc) (*Signature, [][]int, error) {
 	rc := req.CopyReq()
 	b, err := protobuf.Encode(rc)
@@ -424,40 +429,43 @@ func (s *Signer) SignWithPathCheck(req *Request, darcs map[string]*Darc) (*Signa
 	if b == nil {
 		return nil, nil, errors.New("nothing to sign, message is empty")
 	}
-	if s.Ed25519 != nil {
-		key, err := s.GetPrivate()
-		if err != nil {
-			return nil, nil, errors.New("could not retrieve a private key")
-		}
-		pub, err := s.GetPublic()
-		if err != nil {
-			return nil, nil, errors.New("could not retrieve a public key")
-		}
-		var pathindex []int
-		var paths [][]int
-		sub := &SubjectPK{Point: pub}
-		targetDarc, err := FindDarc(darcs, req.DarcID)
-		if err != nil {
-			return nil, nil, err
-		}
-		rules := *targetDarc.Rules
-		targetRule, err := FindRule(rules, req.RuleID)
-		if err != nil {
-			return nil, nil, err
-		}
-		subs := *targetRule.Subjects
-		paths, err = FindAllPaths(subs, &Subject{PK: sub}, darcs, pathindex, paths)
-		if err != nil {
-			return nil, nil, errors.New("There does not seem to be a valid path from target darc to signer")
-		}
-		if len(paths) > 1 {
-			return nil, paths, errors.New("Multiple paths present. Sign with specific path.")
-		}
-		signature, _ := sign.Schnorr(ed25519.NewAES128SHA256Ed25519(false), key, b)
-		signer := &SubjectPK{Point: pub}
-		return &Signature{Signature: signature, Signer: *signer}, nil, nil
+	if s.Ed25519 == nil {
+	    return nil, nil, errors.New("signer is of unknown type")
 	}
-	return nil, nil, errors.New("signer is of unknown type")
+	key, err := s.GetPrivate()
+	if err != nil {
+		return nil, nil, errors.New("could not retrieve a private key")
+	}
+	pub, err := s.GetPublic()
+	if err != nil {
+		return nil, nil, errors.New("could not retrieve a public key")
+	}
+	var pathindex []int
+	var paths [][]int
+	sub := &SubjectPK{Point: pub}
+	targetDarc, err := FindDarc(darcs, req.DarcID)
+	if err != nil {
+		return nil, nil, err
+	}
+	rules := *targetDarc.Rules
+	targetRule, err := FindRule(rules, req.RuleID)
+	if err != nil {
+		return nil, nil, err
+	}
+	subs := *targetRule.Subjects
+	paths, err = FindAllPaths(subs, &Subject{PK: sub}, darcs, pathindex, paths)
+	if err != nil {
+		return nil, nil, errors.New("There does not seem to be a valid path
+                                    from target darc to signer")
+	}
+	if len(paths) > 1 {
+		return nil, paths, errors.New("Multiple paths present. Sign with
+                                        specific path.")
+	}
+	signature, _ := sign.Schnorr(ed25519.NewAES128SHA256Ed25519(false), key, b)
+	signer := &SubjectPK{Point: pub}
+	return &Signature{Signature: signature, Signer: *signer, Request: req},
+                nil, nil
 }
 
 func (s *Signer) GetPublic() (abstract.Point, error) {
@@ -710,7 +718,11 @@ func FindUserRuleIndex(rules []*Rule) (int, error) {
 	return ruleind, nil
 }
 
-func FindAllPaths(subjects []*Subject, requester *Subject, darcs map[string]*Darc, pathIndex []int, allpaths [][]int) ([][]int, error) {
+// when called from a different caller than itself, pathIndex and allpaths are 
+// empty, right? TODO: Check this and posiibly write a wrapper for nicer use.
+func FindAllPaths(subjects []*Subject, requester *Subject,
+                    darcs map[string]*Darc, pathIndex []int, allpaths [][]int)
+                    ([][]int, error) {
 	l := len(allpaths)
 	for i, s := range subjects {
 		if CompareSubjects(s, requester) == true {
