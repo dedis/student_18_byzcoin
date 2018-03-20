@@ -14,7 +14,7 @@ import (
 	"sync"
 
 	"github.com/dedis/cothority"
-	"github.com/dedis/cothority/identity"
+	// "github.com/dedis/cothority/identity"
 	"github.com/dedis/cothority/skipchain"
 	"github.com/dedis/kyber"
 	"github.com/dedis/kyber/sign/schnorr"
@@ -56,6 +56,28 @@ type Service struct {
 // than one structure.
 const storageID = "main"
 
+type Data struct {
+    // Darcs allowed to sign
+    Darcs map[string]*darc.Darc
+    Roster *onet.Roster
+    Votes map[string][]byte
+    // Request represents the request which is sent by the client to update the
+    // state of the skipchain. It contains information on which Darc and which
+    // rule of that darc allow to perform the operation specified in message.
+    /*From package darc:
+    type Request struct {
+	    //ID of the Darc having the access control policy
+	    DarcID ID
+    	//ID showing allowed rule
+    	RuleID int
+    	//Message - Can be a string or a marshalled JSON 
+    	Message []byte
+    } */
+    Requests []darc.Request
+    // add this to the request struct itself
+    DarcSig darc.Signature
+}
+
 type DarcBlock struct {
     sync.Mutex
     Latest *Data
@@ -63,20 +85,16 @@ type DarcBlock struct {
     LatestSkipblock *skipchain.SkipBlock
 }
 
-type Data struct {
-   Darc *darc.Darc
-   Roster *onet.Roster
-}
-
 // storage is used to save our data locally.
 type storage struct {
     // IDBlock stores one identity together with the latest and the currently
     // proposed skipblock.
-    Identities map[string]*identity.IDBlock
+    // Identities map[string]*identity.IDBlock
+    DarcBlocks map[string]*DarcBlock
     // PL: Is used to sign the votes
 	Private    map[string]kyber.Scalar
     // PL: Entities allowed to modify the data(-structure)?
-	Writers    map[string][]byte
+	// Writers    map[string][]byte
 	sync.Mutex
 }
 
@@ -96,20 +114,37 @@ func (s *Service) CreateSkipchain(req *lleap.CreateSkipchain) (*lleap.CreateSkip
     // Also adjust the structure of req *lleap.CreateSkipchain.
     // And what is writer? The device allowed to modify the kv-store (as well
     // the set of Devices)?
+    /*
 	data := &identity.Data{
 		Threshold: 2,
 		Device:    map[string]*identity.Device{"service": &identity.Device{Point: kp.Public}},
 		Roster:    &req.Roster,
 	}
+    */
+    data := Data{
+        Darc: req.Darc,
+        Roster: &req.Roster,
+    }
 
+    /*
 	if len(*req.Writers) == 1 {
 		data.Storage = map[string]string{"writer": string((*req.Writers)[0])}
 	}
+    */
 
     // replace this by something interacting with skipchain directly
+
+    ssb, err := skipchain.CreateGenesisSignature(req.Roster, 
+                                                    10, 
+                                                    10, 
+                                                    verficTODO,
+                                                    req.Data,
+                                                    nil,
+                                                    privTODO)
+    /*
 	cir, err := s.idService().CreateIdentityInternal(&identity.CreateIdentity{
 		Data: data,
-	}, "", "")
+	}, "", "") */
 	if err != nil {
 		return nil, err
 	}
@@ -244,9 +279,11 @@ func (s *Service) getCollection(id skipchain.SkipBlockID) *collectionDB {
 }
 
 // interface to identity.Service
+/*
 func (s *Service) idService() *identity.Service {
 	return s.Service(identity.ServiceName).(*identity.Service)
 }
+*/
 
 // saves all skipblocks.
 func (s *Service) save() {
@@ -308,4 +345,95 @@ func newService(c *onet.Context) (onet.Service, error) {
 		return nil, err
 	}
 	return s, nil
+}
+
+// VerifyBlock makes sure that the new block is legit. This function will be
+// called by the skipchain on all nodes before they sign.
+func (s *Service) VerifyBlock(sbID []byte, sb *skipchain.SkipBlock) bool {
+	// Putting it all in a function for easier error-printing
+	err := func() error {
+		if sb.Index == 0 {
+			log.Lvl4("Always accepting genesis-block")
+			return nil
+		}
+		_, dataInt, err := network.Unmarshal(sb.Data, s.Suite())
+		if err != nil {
+			return errors.New("got unknown packet")
+		}
+		data, ok := dataInt.(*Data)
+		if !ok {
+			return fmt.Errorf("got packet-type %s", reflect.TypeOf(dataInt))
+		}
+		hash, err := data.Hash(s.Suite().(kyber.HashFactory))
+		if err != nil {
+			return err
+		}
+		// Verify that all signatures work out
+		if len(sb.BackLinkIDs) == 0 {
+			return errors.New("No backlinks stored")
+		}
+		s.storageMutex.Lock() // does not exist in lleap. replace
+		defer s.storageMutex.Unlock()
+		var latest *skipchain.SkipBlock
+		for _, dblk := range s.storage.DarcBlocks {
+			if dblk.LatestSkipblock.Hash.Equal(sb.BackLinkIDs[0]) {
+				latest = dblk.LatestSkipblock
+			}
+		}
+		if latest == nil {
+			// If we don't have the block, the leader should have it.
+			var err error
+			latest, err = s.skipchain.GetSingleBlock(sb.Roster, sb.BackLinkIDs[0])
+			if err != nil {
+				return err
+			}
+			if latest == nil {
+				// Block is not here and not with the leader.
+				return errors.New("didn't find latest block")
+			}
+		}
+        // func Unmarshal(buf []byte, suite Suite) (MessageTypeID, Message, error)
+        // thus dataInt : Message, and Message = interface{}
+		_, dataInt, err = network.Unmarshal(latest.Data, s.Suite())
+		if err != nil {
+			return err
+		}
+        // latest : SkipBlock, so dataInt : []byte
+		// dataLatest := dataInt.(*Data) is a type assertion, returning a value
+        // of type *Data or -if not possible- panicking.
+        // dataLatest is the data of the latest skipblock which has been
+        // added to the skipchain, whereas data is the data contained in the
+        // skipblock to be added
+		dataLatest := dataInt.(*Data)
+		sigCnt := 0
+		for drc, sig := range data.Votes {
+			if signer := dataLatest.Darcs[drc]; signer != nil {
+				log.Lvl3("Against darc", signer)
+                // if err := darc.Verify()... err == nil {}
+                // but how can we pass the good parameters?
+                // should we change some structures?
+                // The data in each skipblock should probably contain the darc
+                // and rule of the previous skipblock which allows for the
+                // operation from which the new block is the result
+                /*
+                if err := schnorr.Verify(s.Suite(), pub.Point, hash, sig); err == nil {
+					log.Lvl2("Found correct signature of device", dev)
+					sigCnt++
+				}
+                */
+                if err := drc.Verify()
+			} else {
+				log.Lvl2("Not representative signature detected:", dev)
+			}
+		}
+		if sigCnt >= dataLatest.Threshold || sigCnt == len(dataLatest.Device) {
+			return nil
+		}
+		return errors.New("not enough signatures")
+	}()
+	if err != nil {
+		log.Lvl2("Error while validating block:", err)
+		return false
+	}
+	return true
 }

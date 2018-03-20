@@ -10,7 +10,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/dedis/lleap"
+	"github.com/dedis/student_18_omniledger/lleap"
 	"github.com/dedis/onet/app"
 
 	"github.com/dedis/onet/log"

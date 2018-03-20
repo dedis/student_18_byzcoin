@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-
+set -e
 DBG_TEST=2
 # Debug-level for app
 DBG_APP=2
@@ -9,7 +9,7 @@ DBG_SRV=2
 
 main(){
     startTest
-    buildConode
+    buildConode github.com/dedis/student_18_omniledger/lleap/service
     test CreateStoreRead
     stopTest
 }

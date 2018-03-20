@@ -19,6 +19,7 @@ type Darc struct {
 
 type Rule struct {
 	//Allowed action.
+    // Predefined: "User", "Admin"
 	Action string
 	//List of users who can perform the action.
 	Subjects *[]*Subject

@@ -521,7 +521,7 @@ func VerifyMultiSig(req *Request, sigs []*Signature, darcs map[string]*Darc) err
 		indexMap[pa[0]] = sig
 	}
 	//Evaluate expression
-	expression := targetRule.Expression 
+	expression := targetRule.Expression
 	evaluation, err := EvaluateExpression(expression, indexMap)
 	if err != nil {
 		return err

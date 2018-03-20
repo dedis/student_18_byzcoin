@@ -6,6 +6,7 @@ This holds the messages used to communicate with the service over the network.
 
 import (
 	"github.com/dedis/cothority/skipchain"
+    "github.com/dedis/student_18_omniledger/cothority_template/darc"
 	"github.com/dedis/onet"
 	"github.com/dedis/onet/network"
 )
@@ -50,7 +51,8 @@ type CreateSkipchain struct {
 	// Roster defines which nodes participate in the skipchain.
 	Roster onet.Roster
 	// Writers represent keys that are allowed to add new key/value pairs to the skipchain.
-	Writers *[][]byte
+	// Writers *[][]byte
+    Darc *darc.Darc
 	// Signature, if available, will have to include the nonce sent by cisc.
 	Signature *[]byte
 }

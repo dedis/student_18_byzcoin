@@ -13,6 +13,7 @@ import (
 	"errors"
 
 	"github.com/dedis/cothority"
+    "github.com/dedis/student_18_omniledger/cothority_template/darc"
 	"github.com/dedis/cothority/skipchain"
 	"github.com/dedis/onet"
 )
@@ -33,12 +34,13 @@ func NewClient() *Client {
 
 // CreateSkipchain sets up a new skipchain to hold the key/value pairs. If
 // a key is given, it is used to authenticate towards the cothority.
-func (c *Client) CreateSkipchain(r *onet.Roster, key []byte) (*CreateSkipchainResponse, error) {
+func (c *Client) CreateSkipchain(r *onet.Roster, d darc.Darc)(*CreateSkipchainResponse, error) {
 	reply := &CreateSkipchainResponse{}
 	err := c.SendProtobuf(r.List[0], &CreateSkipchain{
 		Version: CurrentVersion,
 		Roster:  *r,
-		Writers: &[][]byte{key},
+		// Writers: &[][]byte{key},
+        Darc: &d,
 	}, reply)
 	if err != nil {
 		return nil, err

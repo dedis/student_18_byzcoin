@@ -5,7 +5,7 @@ import (
 
 	"github.com/dedis/cothority/skipchain"
 	"github.com/dedis/kyber/suites"
-	"github.com/dedis/lleap"
+	"github.com/dedis/student_18_omniledger/lleap"
 	"github.com/dedis/onet"
 	"github.com/dedis/onet/log"
 	"github.com/stretchr/testify/assert"
