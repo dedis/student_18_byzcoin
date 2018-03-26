@@ -86,7 +86,7 @@ type Data struct {
     Timestamp time.Time
 }
 
-    
+
 type DarcBlock struct {
     sync.Mutex
     Latest *Data
@@ -360,6 +360,7 @@ func newService(c *onet.Context) (onet.Service, error) {
 // called by the skipchain on all nodes before they sign.
 func (s *Service) VerifyBlock(sbID []byte, sb *skipchain.SkipBlock) bool {
 	// Putting it all in a function for easier error-printing
+    idStr := fmt.Sprintf("%x", sbID)
 	err := func() error {
 		if sb.Index == 0 {
 			log.Lvl4("Always accepting genesis-block")
@@ -391,7 +392,51 @@ func (s *Service) VerifyBlock(sbID []byte, sb *skipchain.SkipBlock) bool {
 		}
 		if latest == nil {
 			// If we don't have the block, the leader should have it.
-			var err error
+	        // also: since we don't have the latest block, we must update our
+            // collectionDB.
+            var err error
+            recentBytes, err := s.skipchain.getUpdateChain(skipchain.GetUpdateChain{
+                LatestID: s.storage.DarcBlocks[idStr].LatestSkipblock.SkipBlockID
+            })
+            if err != nil {
+                return errors.New("Could not update skipchain")
+            }
+            recentBlocks, ok = recentBytes.([]*SkiprBblock)
+            if !ok {
+			    return fmt.Errorf("got block-type %s", reflect.TypeOf(dataInt))
+            }
+            if len(recentBlocks) == 0 {
+                return errors.New("Did not get any recent blocks")
+            }
+            if recentBlocks[0].BackLinkIDs[0] != s.storage.DarcBlocks[idStr].LatestSkipblock.SkipBlockID {
+                return errors.New("Unmatching skipblock ID")
+            }
+
+            latest = recentBlocks[len(recentBlocks)-1]
+
+            // TODO: Make this less ugly
+            for _, b := range recentBlocks {
+                if err := b.VerifyForwardSignatures(), err != nil {
+                    return err
+                }
+                for _, sigs := range b.Data.Sigs {
+                    skv, ok := sigs.Request.Message.(lleap.SetKeyValue)
+                    if ok {
+                      s.collectionDB[idStr].Add(skv.Key, skv.Value)
+                    }
+                }
+            }
+
+            // check merkle root
+            if s.collectionDB[idStr].GetRoot() != latest.Data.MerkleRoot {
+                return errors.New("local merkle root is not equal to merkle
+                                    root in latest skipblock")
+            }
+            // now our chain and our collection are up to date, so we can
+            // start to actually do the verification
+
+
+            /*
 			latest, err = s.skipchain.GetSingleBlock(sb.Roster, sb.BackLinkIDs[0])
 			if err != nil {
 				return err
@@ -399,7 +444,10 @@ func (s *Service) VerifyBlock(sbID []byte, sb *skipchain.SkipBlock) bool {
 			if latest == nil {
 				// Block is not here and not with the leader.
 				return errors.New("didn't find latest block")
+
+
 			}
+            */
 		}
         // func Unmarshal(buf []byte, suite Suite) (MessageTypeID, Message, error)
         // thus dataInt : Message, and Message = interface{}
@@ -414,13 +462,11 @@ func (s *Service) VerifyBlock(sbID []byte, sb *skipchain.SkipBlock) bool {
         // added to the skipchain, whereas data is the data contained in the
         // skipblock to be added
 		dataLatest := dataInt.(*Data)
-        idStr := fmt.Sprintf("%x", sbID)
-    	col := s.collectionDB[idStr]
+        col := s.collectionDB[idStr]
         for _, sig := range data.Sigs {
             if err := col.verify(sig), err != nil {
-                return false
+                return errors.New("invalid signature on request")
             }
-
         }
         /*
 		sigCnt := 0
