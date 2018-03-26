@@ -75,12 +75,18 @@ type Data struct {
     	//Message - Can be a string or a marshalled JSON 
     	Message []byte
     } */
-    Requests []darc.Request
+    // Requests []darc.Request
     // add this to the request struct itself
-    DarcSig darc.Signature
+    // We can have multiple requests in a single block.
+    // However, they should not depend on each other, since if we do 
+    // multi-submissions, the order is not clear. Si everything which happens
+    // in a single block happends concurrently and no order is specified.
+    // Thus we only need one Merkle root per block and not one per request.
+    Sigs []darc.Signature
     Timestamp time.Time
 }
 
+    
 type DarcBlock struct {
     sync.Mutex
     Latest *Data
@@ -408,6 +414,14 @@ func (s *Service) VerifyBlock(sbID []byte, sb *skipchain.SkipBlock) bool {
         // added to the skipchain, whereas data is the data contained in the
         // skipblock to be added
 		dataLatest := dataInt.(*Data)
+        idStr := fmt.Sprintf("%x", sbID)
+    	col := s.collectionDB[idStr]
+        for _, sig := range data.Sigs {
+            if err := col.verify(sig), err != nil {
+                return false
+            }
+
+        }
         /*
 		sigCnt := 0
 		for drc, sig := range data.Votes {
@@ -462,5 +476,78 @@ func (darcs *collectionDB) findDarc (darcid darc.ID) (*darc.Darc, error) {
         return nil, fmt.Errorf("got data-type %s", reflect.TypeOf(resultDarc))
     }
     return resultDarc, nil
+}
+
+func (darcs *collectionDB) getPath(sig *darc.Signature) {
+    //Find Darc from request DarcID
+	targetDarc, err := darcs.findDarc(sig.Request.DarcID)
+	if err != nil {
+		return err
+	}
+	rules := *targetDarc.Rules
+	targetRule, err := darc.FindRule(rules, req.RuleID)
+	if err != nil {
+		return err
+	}
+	signer := sig.Signer
+	subs := *targetRule.Subjects
+	var pathIndex []int
+	_, err = .darcs.findSubject(subs, &Subject{PK: &signer}, pathIndex)
+	//fmt.Println(pa)
+	return err
+
+}
+func (darcs *collectionDB) findSubject(subjects []*Subject, requester *Subject,
+                                        pathIndex []int) ([]int, error) {
+    for i, s := range subjects {
+		if CompareSubjects(s, requester) == true {
+			pathIndex = append(pathIndex, i)
+			return pathIndex, nil
+		} else if s.Darc != nil {
+			targetDarc, err := darcs.FindDarc(s.Darc.ID)
+			if err != nil {
+				return nil, err
+			}
+			ruleind, err := darcs.FindUserRuleIndex(*targetDarc.Rules)
+			if err != nil {
+				return nil, errors.New("User rule ID not found")
+			}
+			subs := *(*targetDarc.Rules)[ruleind].Subjects
+			pathIndex = append(pathIndex, i)
+			pa, err := darcs.findSubject(subs, requester, pathIndex)
+			if err != nil {
+				pathIndex = pathIndex[:len(pathIndex)-1]
+			} else {
+				return pa, nil
+			}
+		}
+	}
+	return nil, errors.New("Subject not found")
+}
+
+func (darcs *collectionDB) verify(sig *darc.Signature) error {
+    if sig == nil || len(sig.Signature) == 0 {
+		return errors.New("No signature available")
+	}
+	rc := sig.Request.CopyReq()
+	b, err := protobuf.Encode(rc)
+	if err != nil {
+		return err
+	}
+	if b == nil {
+		return errors.New("nothing to verify, message is empty")
+	}
+	pub := sig.Signer.Point
+	err = sign.VerifySchnorr(network.Suite, pub, b, sig.Signature)
+	if err != nil {
+		return err
+	}
+	//Check if path from rule to signer is correct
+	err = darcs.getPath(darcs, req, sig)
+	if err != nil {
+		return err
+	}
+	return err
+
 }
 
