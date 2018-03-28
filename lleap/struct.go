@@ -61,13 +61,11 @@ type CreateSkipchain struct {
 	Version Version
 	// Roster defines which nodes participate in the skipchain.
 	Roster onet.Roster
-	// Writers represent keys that are allowed to add new key/value pairs to the skipchain.
-	// Writers *[][]byte
-    // this is the master darc which defines who is allowed to write to this 
-    // skipchain. we will only store its hash.
-    Darc *darc.Darc
-	// Signature from the darc.
-    Signature darc.Signature
+	// Writers represent keys that are allowed to add new key/value pairs to
+    // the skipchain.
+    // Transaction contains the master darc which defines who is allowed to
+    // write to this skipchain. we will only store its hash.
+    Transaction Transaction
 }
 
 // CreateSkipchainResponse holds the genesis-block of the new skipchain.
@@ -85,14 +83,9 @@ type SetKeyValue struct {
 	Version Version
 	// SkipchainID is the hash of the first skipblock
 	SkipchainID skipchain.SkipBlockID
-	// Key where the value is stored
-	Key []byte
-	// Value, if Writers were present in CreateSkipchain, the value should be
-	// signed by one of the keys.
-	Value []byte
-	// Signature is an RSA-sha384 signature on the key/value pair concatenated
-	Signature []byte
-}
+    // Transaction to be done
+    Transaction Transaction
+	}
 
 // SetKeyValueResponse gives the timestamp and the skipblock-id
 type SetKeyValueResponse struct {
