@@ -104,48 +104,48 @@ func (s *Service) CreateSkipchain(req *lleap.CreateSkipchain) (*lleap.CreateSkip
 	if req.Version != lleap.CurrentVersion {
 		return nil, errors.New("version mismatch")
 	}
-
+    if req.Transaction == nil {
+        return nil, errors.New("Transaction is nil")
+    }
+    if req.Transaction.Key == nil {
+        return nil, errors.New("Key is nil")
+    }
+    if req.Transaction.Kind == nil {
+        return nil, errors.New("Kind is nil")
+    }
+    if req.Transaction.Value == nil {
+        return nil, errors.New("Value is nil")
+    }
 	kp := key.NewKeyPair(cothority.Suite)
-    // get rid of identity here by using a struct which contains a DARC and
-    // some sort of kv store.
-    // Also adjust the structure of req *lleap.CreateSkipchain.
-    // And what is writer? The device allowed to modify the kv-store (as well
-    // the set of Devices)?
-    /*
-	data := &identity.Data{
-		Threshold: 2,
-		Device:    map[string]*identity.Device{"service": &identity.Device{Point: kp.Public}},
-		Roster:    &req.Roster,
-	}
-    */
+    tmpColl := collection.New{collection.Data{}, collection.Data{}}
+    key := append(req.Kind, []byte(":"), req.Key)
+    tmpColl.Add(key, req.Value)
+    merkleroot := tmpColl.getRoot()
     data := &Data{
+        MerkleRoot: merkleroot
         Transactions: {req.Transaction}
     }
-    ssb, err := skipchain.CreateGenesisSignature(req.Roster, 
+    skb, err := skipchain.CreateGenesisSignature(req.Roster, 
                                                     10, 
                                                     10, 
                                                     verficTODO,
                                                     req.Data,
                                                     nil,
                                                     privTODO)
-    /*
-	cir, err := s.idService().CreateIdentityInternal(&identity.CreateIdentity{
-		Data: data,
-	}, "", "") */
 	if err != nil {
 		return nil, err
 	}
-	gid := string(cir.Genesis.SkipChainID())
+	gid := skb.SkipChainID()
+    s.getCollection(gid).
     s.storage.DarcBlocks[gid] = &DarcBlock{
         Latest:          data,
-		LatestSkipblock: cir.Genesis,
+		LatestSkipblock: skb,
 	}
 	s.storage.Private[gid] = kp.Private
-	s.storage.Writers[gid] = []byte(data.Storage["writer"])
 	s.save()
 	return &lleap.CreateSkipchainResponse{
 		Version:   lleap.CurrentVersion,
-		Skipblock: cir.Genesis,
+		Skipblock: skb,
 	}, nil
 }
 
@@ -157,10 +157,10 @@ func (s *Service) SetKeyValue(req *lleap.SetKeyValue) (*lleap.SetKeyValueRespons
 		return nil, errors.New("version mismatch")
 	}
 	gid := string(req.SkipchainID)
-	idb := s.storage.Identities[gid]
+	darcblk := s.storage.DarcBlocks[gid]
 	priv := s.storage.Private[gid]
-	if idb == nil || priv == nil {
-		return nil, errors.New("don't have this identity stored")
+	if darcblk == nil || priv == nil {
+		return nil, errors.New("don't have this chain stored")
 	}
     // PL: Does this check make sense? What if pub == nil?
 	if pub := s.storage.Writers[gid]; pub != nil {
