@@ -118,8 +118,8 @@ func (s *Service) CreateSkipchain(req *lleap.CreateSkipchain) (*lleap.CreateSkip
     }
 	kp := key.NewKeyPair(cothority.Suite)
     tmpColl := collection.New{collection.Data{}, collection.Data{}}
-    key := append(req.Kind, []byte(":"), req.Key)
-    tmpColl.Add(key, req.Value)
+    key := append(req.Transaction.Kind, []byte(":"), req.Transaction.Key)
+    tmpColl.Add(key, req.Transaction.Value)
     merkleroot := tmpColl.getRoot()
     data := &Data{
         MerkleRoot: merkleroot
@@ -136,7 +136,7 @@ func (s *Service) CreateSkipchain(req *lleap.CreateSkipchain) (*lleap.CreateSkip
 		return nil, err
 	}
 	gid := skb.SkipChainID()
-    s.getCollection(gid).
+    s.getCollection(gid).Store(key, req.Transaction.Value, req.Transaction,Signature)
     s.storage.DarcBlocks[gid] = &DarcBlock{
         Latest:          data,
 		LatestSkipblock: skb,
