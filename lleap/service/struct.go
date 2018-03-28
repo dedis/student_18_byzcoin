@@ -49,6 +49,9 @@ func (c *collectionDB) loadAll() {
 	})
 }
 
+// PL: Compared to the original lleap code, we could remove the signature here,
+// since the request (aka Transaction) containing the signature is stored in
+// the skipchain.
 func (c *collectionDB) Store(key, value, sig []byte) error {
 	c.coll.Add(key, value, sig)
 	err := c.db.Update(func(tx *bolt.Tx) error {
