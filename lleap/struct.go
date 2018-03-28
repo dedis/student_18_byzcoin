@@ -66,8 +66,8 @@ type CreateSkipchain struct {
     // this is the master darc which defines who is allowed to write to this 
     // skipchain. we will only store its hash.
     Darc *darc.Darc
-	// Signature, if available, will have to include the nonce sent by cisc.
-	Signature *[]byte
+	// Signature from the darc.
+    Signature darc.Signature
 }
 
 // CreateSkipchainResponse holds the genesis-block of the new skipchain.
