@@ -83,7 +83,7 @@ type Data struct {
     // Root of the merkle tree after applying the transactions to the
     // kv store
     MerkleRoot []byte
-    // We can have multiple requests in a single block.
+    // We can have multiple Transactions in a single block.
     // However, they should not depend on each other, since if we do 
     // multi-submissions, the order is not well defined. So everything which
     // happens in a single block happends concurrently and no order is specified.
@@ -93,9 +93,6 @@ type Data struct {
     Transactions []*lleap.Transaction
     Timestamp int64
 }
-
-
-
 
 
 // CreateSkipchain asks the cisc-service to create a new skipchain ready to store
@@ -121,19 +118,9 @@ func (s *Service) CreateSkipchain(req *lleap.CreateSkipchain) (*lleap.CreateSkip
 		Roster:    &req.Roster,
 	}
     */
-    data := Data{
-        Darc: req.Darc,
-        Roster: &req.Roster,
+    data := &Data{
+        Transactions: {req.Transaction}
     }
-
-    /*
-	if len(*req.Writers) == 1 {
-		data.Storage = map[string]string{"writer": string((*req.Writers)[0])}
-	}
-    */
-
-    // replace this by something interacting with skipchain directly
-
     ssb, err := skipchain.CreateGenesisSignature(req.Roster, 
                                                     10, 
                                                     10, 
@@ -149,10 +136,8 @@ func (s *Service) CreateSkipchain(req *lleap.CreateSkipchain) (*lleap.CreateSkip
 		return nil, err
 	}
 	gid := string(cir.Genesis.SkipChainID())
-    // if we modify data as described above, we can just use it here.
-    // we can still use the genesisblock, but the one from skipchain
-	s.storage.Identities[gid] = &identity.IDBlock{
-		Latest:          data,
+    s.storage.DarcBlocks[gid] = &DarcBlock{
+        Latest:          data,
 		LatestSkipblock: cir.Genesis,
 	}
 	s.storage.Private[gid] = kp.Private
