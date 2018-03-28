@@ -36,6 +36,10 @@ const keyNewValue = "newvalue"
 
 const darcBytes = []bytes("darc:")
 
+// storageID reflects the data we're storing - we could store more
+// than one structure.
+const storageID = "main"
+
 func init() {
 	var err error
 	lleapID, err = onet.RegisterNewService(lleap.ServiceName, newService)
@@ -55,45 +59,6 @@ type Service struct {
 	storage *storage
 }
 
-// storageID reflects the data we're storing - we could store more
-// than one structure.
-const storageID = "main"
-
-type Data struct {
-    // Darcs allowed to sign
-    MerkleRoot []byte
-    Roster *onet.Roster
-    // Request represents the request which is sent by the client to update the
-    // state of the skipchain. It contains information on which Darc and which
-    // rule of that darc allow to perform the operation specified in message.
-    /*From package darc:
-    type Request struct {
-	    //ID of the Darc having the access control policy
-	    DarcID ID
-    	//ID showing allowed rule
-    	RuleID int
-    	//Message - Can be a string or a marshalled JSON 
-    	Message []byte
-    } */
-    // Requests []darc.Request
-    // add this to the request struct itself
-    // We can have multiple requests in a single block.
-    // However, they should not depend on each other, since if we do 
-    // multi-submissions, the order is not clear. Si everything which happens
-    // in a single block happends concurrently and no order is specified.
-    // Thus we only need one Merkle root per block and not one per request.
-    Sigs []darc.Signature
-    Timestamp time.Time
-}
-
-
-type DarcBlock struct {
-    sync.Mutex
-    Latest *Data
-    Proposed *Data
-    LatestSkipblock *skipchain.SkipBlock
-}
-
 // storage is used to save our data locally.
 type storage struct {
     // IDBlock stores one identity together with the latest and the currently
@@ -106,6 +71,30 @@ type storage struct {
 	// Writers    map[string][]byte
 	sync.Mutex
 }
+
+type DarcBlock struct {
+    sync.Mutex
+    Latest *Data
+    Proposed *Data
+    LatestSkipblock *skipchain.SkipBlock
+}
+
+type Data struct {
+    // Root of the merkle tree after applying the transactions to the
+    // kv store
+    MerkleRoot []byte
+    // We can have multiple requests in a single block.
+    // However, they should not depend on each other, since if we do 
+    // multi-submissions, the order is not well defined. So everything which
+    // happens in a single block happends concurrently and no order is specified.
+    // Thus we only need one Merkle root per block and not one per request.
+
+    // The transactions applied to the kv store with this block
+    Transactions []*Transaction
+    Timestamp int64
+}
+
+
 
 // CreateSkipchain asks the cisc-service to create a new skipchain ready to store
 // key/value pairs. If it is given exactly one writer, this writer will be stored
@@ -276,6 +265,7 @@ func (s *Service) GetValue(req *lleap.GetValue) (*lleap.GetValueResponse, error)
 	}, nil
 }
 
+// TODO: Replace collectionsDB[idStr] with this
 func (s *Service) getCollection(id skipchain.SkipBlockID) *collectionDB {
 	idStr := fmt.Sprintf("%x", id)
 	col := s.collectionDB[idStr]
@@ -395,7 +385,7 @@ func (s *Service) VerifyBlock(sbID []byte, sb *skipchain.SkipBlock) bool {
 	        // also: since we don't have the latest block, we must update our
             // collectionDB.
             var err error
-            recentBytes, err := s.skipchain.getUpdateChain(skipchain.GetUpdateChain{
+            recentBytes, err := s.skipchain.GetUpdateChain(skipchain.GetUpdateChain{
                 LatestID: s.storage.DarcBlocks[idStr].LatestSkipblock.SkipBlockID
             })
             if err != nil {
