@@ -44,6 +44,17 @@ const CurrentVersion Version = 1
 // These are the messages used in the API-calls
 // ***
 
+// Transaction is the struct specifying the modifications to the skipchain.
+// Key is the key chosen by the user, Kind is the kind of value to store
+// (e.g. a drac...). The key used in the conode's collection will be
+// Kind ':' Key, in order to maintain key uniqueness across different kinds
+// of values.
+type Transaction struct {
+    Key []byte
+    Kind []byte
+    Value []byte
+    Signature darc.Signature
+}
 // CreateSkipchain asks the cisc-service to set up a new skipchain.
 type CreateSkipchain struct {
 	// Version of the protocol
