@@ -136,7 +136,8 @@ func (s *Service) CreateSkipchain(req *lleap.CreateSkipchain) (*lleap.CreateSkip
 		return nil, err
 	}
 	gid := skb.SkipChainID()
-    s.getCollection(gid).Store(key, req.Transaction.Value, req.Transaction,Signature)
+    s.getCollection(gid).Store(key, req.Transaction.Value,
+        req.Transaction,Signature)
     s.storage.DarcBlocks[gid] = &DarcBlock{
         Latest:          data,
 		LatestSkipblock: skb,
