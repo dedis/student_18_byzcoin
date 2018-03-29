@@ -151,7 +151,8 @@ func (s *Service) CreateSkipchain(req *lleap.CreateSkipchain) (*lleap.CreateSkip
 }
 
 // SetKeyValue asks cisc to add a new key/value pair.
-func (s *Service) SetKeyValue(req *lleap.SetKeyValue) (*lleap.SetKeyValueResponse, error) {
+func (s *Service) SetKeyValue(req *lleap.SetKeyValue)
+        (*lleap.SetKeyValueResponse, error) {
 	// Check the input arguments
 	// TODO: verify the signature on the key/value pair
 	if req.Version != lleap.CurrentVersion {
@@ -441,8 +442,8 @@ func (s *Service) VerifyBlock(sbID []byte, sb *skipchain.SkipBlock) bool {
         // skipblock to be added
 		dataLatest := dataInt.(*Data)
         col := s.collectionDB[idStr]
-        for _, sig := range data.Sigs {
-            if err := col.verify(sig), err != nil {
+        for _, tx := range data.Transactions {
+            if err := col.verify(tx.Signature), err != nil {
                 return errors.New("invalid signature on request")
             }
         }
@@ -480,11 +481,16 @@ func (s *Service) VerifyBlock(sbID []byte, sb *skipchain.SkipBlock) bool {
 
 func (darcs *collectionDB) findDarc (darcid darc.ID) (*darc.Darc, error) {
     darcKey = append(darcBytes, darcid...)
-    d, err := darcs.Get(darcKey).Record()
+    d, _, err := darcs.GetValue(darcKey)
     if err != nil {
-        log.lvl2("Error while getting record from collection:", err)
+        log.lvl2("Error while getting record from collectionDB:", err)
         return nil, err
     }
+    res, ok = d.(darc.Darc)
+    if !ok {
+        return nil, errors.New("Could not assert type")
+    }
+    return d, nil
     if !d.Match() {
         log.lvl2("No match found for darc key.", err)
         return nil, errors.New("Could not find match.")
