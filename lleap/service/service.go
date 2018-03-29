@@ -165,23 +165,13 @@ func (s *Service) SetKeyValue(req *lleap.SetKeyValue)
 		return nil, errors.New("don't have this chain stored")
 	}
     // PL: Does this check make sense? What if pub == nil?
-	if pub := s.storage.Writers[gid]; pub != nil {
-		log.Lvl1("Verifying signature")
-		public, err := x509.ParsePKIXPublicKey(pub)
-		if err != nil || public == nil {
-			return nil, err
-		}
-		hash := sha256.New()
-		hash.Write(req.Key)
-		hash.Write(req.Value)
-		hashed := hash.Sum(nil)[:]
-		err = rsa.VerifyPKCS1v15(public.(*rsa.PublicKey), crypto.SHA256, hashed, req.Signature)
-		if err != nil {
-			log.Lvl1("signature verification failed")
-			return nil, errors.New("couldn't verify signature")
-		}
-		log.Lvl1("signature verification succeeded")
-	}
+	log.Lvl1("Verifying signature")
+    err := s.collectionDB[gid].verify(req.Signature)
+    if err != nil {
+		log.Lvl1("signature verification failed")
+        return nil, err
+    }
+	log.Lvl1("signature verification succeeded")
 
 	// Store the pair in the collection
 	coll := s.getCollection(req.SkipchainID)
@@ -490,32 +480,17 @@ func (darcs *collectionDB) findDarc (darcid darc.ID) (*darc.Darc, error) {
     if !ok {
         return nil, errors.New("Could not assert type")
     }
-    return d, nil
-    if !d.Match() {
-        log.lvl2("No match found for darc key.", err)
-        return nil, errors.New("Could not find match.")
-    }
-    values := d.Values()
-    // TODO: Check the (unlikely) case that len(values) > 1
-    if len(values) < 1 {
-        log.lvl2("Empty slice for darcid:", darcKey)
-        return nil, errors.New("Found empty slice as value for darc key")
-    }
-    resultDarc, ok := values[0].(darc.Darc)
-    if !ok {
-        return nil, fmt.Errorf("got data-type %s", reflect.TypeOf(resultDarc))
-    }
-    return resultDarc, nil
+    return res, nil
 }
 
-func (darcs *collectionDB) getPath(sig *darc.Signature) {
+func (darcs *collectionDB) getPath() {
     //Find Darc from request DarcID
-	targetDarc, err := darcs.findDarc(sig.Request.DarcID)
+	targetDarc, err := darcs.findDarc(sig)
 	if err != nil {
 		return err
 	}
 	rules := *targetDarc.Rules
-	targetRule, err := darc.FindRule(rules, req.RuleID)
+	targetRule, err := darc.FindRule(rules, sig.Request.RuleID)
 	if err != nil {
 		return err
 	}
