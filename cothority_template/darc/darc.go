@@ -541,6 +541,9 @@ func VerifyMultiSig(req *Request, sigs []*Signature, darcs map[string]*Darc) err
 	}
 }
 
+// The request contains a DarcID which indicates the darc which allows the
+// action. There must be a path from the indicated darc to the PK of the
+// signer. 
 func Verify(req *Request, sig *Signature, darcs map[string]*Darc) error {
 	//Check if signature is correct
 	if sig == nil || len(sig.Signature) == 0 {
@@ -556,6 +559,8 @@ func Verify(req *Request, sig *Signature, darcs map[string]*Darc) error {
 	}
 	pub := sig.Signer.Point
 	err = sign.VerifySchnorr(network.Suite, pub, b, sig.Signature)
+    // Thus, this function returns nil IFF there is a path from one of the
+    // subjects to subject via user-rules inside darcs.
 	if err != nil {
 		return err
 	}
@@ -664,11 +669,20 @@ func CompareSubjects(s1 *Subject, s2 *Subject) bool {
 
 func FindSubject(subjects []*Subject, requester *Subject, darcs map[string]*Darc, pathIndex []int) ([]int, error) {
 	//fmt.Println(pathIndex)
+    // Iterate through each of the subjects.
+    // If the requester is found, it means that he has the right to do whatever
+    // the darc allows. Otherwise, if we have found a darc, the rquester might
+    // be in one of it's subjects. Thus we recursively look at all the subjects
+    // in a depth-first manner, taking the darc who's user-list contains
+    // subjects as the root.
+    // Thus, this function returns nil IFF there is a path from one of the
+    // subjects to subject via user-rules inside darcs.
 	for i, s := range subjects {
 		if CompareSubjects(s, requester) == true {
 			pathIndex = append(pathIndex, i)
 			return pathIndex, nil
-		} else if s.Darc != nil {
+		}
+        if s.Darc != nil {
 			targetDarc, err := FindDarc(darcs, s.Darc.ID)
 			if err != nil {
 				return nil, err
