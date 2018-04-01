@@ -304,17 +304,17 @@ func ProcessJson(raw interface{}, indexMap map[int]*Signature,
 									return false, err
 								}
 							}
-						case float64: 
-						 	if i == 0 {
-						 		if i == len(vv)-1 {
-						 				z, err := operation(k, checkMap(indexMap, int(x)), false)
-						 				if err != nil {
+						case float64:
+							if i == 0 {
+								if i == len(vv)-1 {
+										z, err := operation(k, checkMap(indexMap, int(x)), false)
+										if err != nil {
 											return false, err
 										}
 										evaluation = z
-						 			} else {
-						 				evaluation = checkMap(indexMap, int(x)) 
-						 			}
+									} else {
+										evaluation = checkMap(indexMap, int(x)) 
+									}
 							} else {
 								y, err := operation(k, evaluation, checkMap(indexMap, int(x)))
 								if err != nil {
@@ -667,16 +667,18 @@ func CompareSubjects(s1 *Subject, s2 *Subject) bool {
 	return false
 }
 
+// Iterate through each of the subjects.
+// If the requester is found, it means that he has the right to do whatever
+// the darc allows. Otherwise, if we have found a darc, the rquester might
+// be in one of it's subjects. Thus we recursively look at all the subjects
+// in a depth-first manner, taking the darc who's user-list contains
+// subjects as the root.
+// Thus, this function returns nil IFF there is a path from one of the
+// subjects to subject via user-rules inside darcs.
+// TODO: If there is a cycle in darcs, this could lead to an infinite loop,
+// should this be fixed?
 func FindSubject(subjects []*Subject, requester *Subject, darcs map[string]*Darc, pathIndex []int) ([]int, error) {
 	//fmt.Println(pathIndex)
-    // Iterate through each of the subjects.
-    // If the requester is found, it means that he has the right to do whatever
-    // the darc allows. Otherwise, if we have found a darc, the rquester might
-    // be in one of it's subjects. Thus we recursively look at all the subjects
-    // in a depth-first manner, taking the darc who's user-list contains
-    // subjects as the root.
-    // Thus, this function returns nil IFF there is a path from one of the
-    // subjects to subject via user-rules inside darcs.
 	for i, s := range subjects {
 		if CompareSubjects(s, requester) == true {
 			pathIndex = append(pathIndex, i)
@@ -719,6 +721,7 @@ func FindRule(rules []*Rule, ruleid int) (*Rule, error) {
 	return rules[ruleid], nil
 }
 
+// Gives back the index of the rule with Action users if possible and else -1.
 func FindUserRuleIndex(rules []*Rule) (int, error) {
 	ruleind := -1
 	for i, rule := range rules {
