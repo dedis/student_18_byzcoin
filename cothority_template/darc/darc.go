@@ -628,7 +628,7 @@ func VerifyPath(darcs map[string]*Darc, req *Request, sig *SignaturePath) error 
 		}
 		target := subs[path[i]]
 		target_darc := *target.Darc
-		target_id := target_darc.ID 
+		target_id := target_darc.ID
 		current_darc, err = FindDarc(darcs, target_id)
 		if err != nil {
 			return err
@@ -677,7 +677,8 @@ func CompareSubjects(s1 *Subject, s2 *Subject) bool {
 // subjects to subject via user-rules inside darcs.
 // TODO: If there is a cycle in darcs, this could lead to an infinite loop,
 // should this be fixed?
-func FindSubject(subjects []*Subject, requester *Subject, darcs map[string]*Darc, pathIndex []int) ([]int, error) {
+func FindSubject(subjects []*Subject, requester *Subject,
+        darcs map[string]*Darc, pathIndex []int) ([]int, error) {
 	//fmt.Println(pathIndex)
 	for i, s := range subjects {
 		if CompareSubjects(s, requester) == true {
