@@ -526,6 +526,8 @@ func getUserSubjects (d *darc.Darc) ([]*darc.Subjects, error) {
 }
 
 // TODO: Make this less ugly
+// TODO: Check for cyclic inclusions in darcs, could be an attack vector for
+// DoS
 func (darcs *collectionDB) findSubject(subjects []*Subject, requester *Subject,
                                         pathIndex []int) ([]int, error) {
     for i, s := range subjects {
