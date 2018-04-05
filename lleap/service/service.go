@@ -164,7 +164,7 @@ func (s *Service) SetKeyValue(req *lleap.SetKeyValue)
 	if darcblk == nil || priv == nil {
 		return nil, errors.New("don't have this chain stored")
 	}
-    // PL: Does this check make sense? What if pub == nil?
+    // Verify darc
 	log.Lvl1("Verifying signature")
     err := s.collectionDB[gid].verify(req.Signature)
     if err != nil {
@@ -233,6 +233,9 @@ func (s *Service) GetValue(req *lleap.GetValue) (*lleap.GetValueResponse, error)
 		return nil, errors.New("version mismatch")
 	}
 
+    if err := verify(req.Transaction.Signature), err != nil {
+        return nil, err
+    }
 	value, sig, err := s.getCollection(req.SkipchainID).GetValue(req.Key)
 	if err != nil {
 		return nil, errors.New("couldn't get value for key: " + err.Error())
@@ -364,6 +367,7 @@ func (s *Service) VerifyBlock(sbID []byte, sb *skipchain.SkipBlock) bool {
 	        // also: since we don't have the latest block, we must update our
             // collectionDB.
             var err error
+            // This will not do any nw traffic, it is only local.
             recentBytes, err := s.skipchain.GetUpdateChain(skipchain.GetUpdateChain{
                 LatestID: s.storage.DarcBlocks[idStr].LatestSkipblock.SkipBlockID
             })
@@ -483,25 +487,45 @@ func (darcs *collectionDB) findDarc (darcid darc.ID) (*darc.Darc, error) {
     return res, nil
 }
 
-func (darcs *collectionDB) getPath() {
-    //Find Darc from request DarcID
-	targetDarc, err := darcs.findDarc(sig)
+// getPath finds a path from the master darc to the signer. The path consists
+// of a slice of int, where path[i] is the rule in the darc at tree level i
+// which indicates the next subject.
+// We consider only the action "user". It implies read-write rights for the
+// keys which do not belong to a darc. If a darc is to be modified, the signer
+// must be in it's admin rule.
+func (darcs *collectionDB) checkUserPath(signer darc.SubjectPK)
+        ([]int, error) {
+	masterDarc, err := darcs.findDarc(masterDarcKey)
 	if err != nil {
 		return err
 	}
-	rules := *targetDarc.Rules
-	targetRule, err := darc.FindRule(rules, sig.Request.RuleID)
-	if err != nil {
-		return err
-	}
-	signer := sig.Signer
-	subs := *targetRule.Subjects
+    subs, err := getUserSubjects(masterDarc)
+    if err != nil {
+        return err
+    }
+    // recursively search the tree of subjects for the signer,
+    // following user rules and updating the pathIndex.
 	var pathIndex []int
-	_, err = .darcs.findSubject(subs, &Subject{PK: &signer}, pathIndex)
+	pa, err = darcs.findSubject(subs, &Subject{PK: &signer}, pathIndex)
 	//fmt.Println(pa)
-	return err
-
+	return pa, err
 }
+
+func getUserSubjects (d *darc.Darc) ([]*darc.Subjects, error) {
+	rules := *d.Rules
+    var subs []*darc.Subjects
+    for i, r := range rules {
+        if r.Action == "User" {
+            subs = append(subs, r.Subjects...)
+        }
+    }
+    if len(subs) == 0 {
+        return nil, errors.New("no user subects found")
+    }
+    return subs, nil
+}
+
+// TODO: Make this less ugly
 func (darcs *collectionDB) findSubject(subjects []*Subject, requester *Subject,
                                         pathIndex []int) ([]int, error) {
     for i, s := range subjects {
@@ -511,17 +535,17 @@ func (darcs *collectionDB) findSubject(subjects []*Subject, requester *Subject,
 		} else if s.Darc != nil {
 			targetDarc, err := darcs.FindDarc(s.Darc.ID)
 			if err != nil {
-				return nil, err
+                continue
+				// return nil, err
 			}
-			ruleind, err := darcs.FindUserRuleIndex(*targetDarc.Rules)
+            subs, err := getUserSubjects(targetDarc)
 			if err != nil {
-				return nil, errors.New("User rule ID not found")
+                continue
+				// return nil, errors.New("User rule ID not found")
 			}
-			subs := *(*targetDarc.Rules)[ruleind].Subjects
-			pathIndex = append(pathIndex, i)
-			pa, err := darcs.findSubject(subs, requester, pathIndex)
+			pa, err := darcs.findSubject(subs, requester, append(pathIndex, i))
 			if err != nil {
-				pathIndex = pathIndex[:len(pathIndex)-1]
+                continue
 			} else {
 				return pa, nil
 			}
@@ -530,29 +554,35 @@ func (darcs *collectionDB) findSubject(subjects []*Subject, requester *Subject,
 	return nil, errors.New("Subject not found")
 }
 
-func (darcs *collectionDB) verify(sig *darc.Signature) error {
-    if sig == nil || len(sig.Signature) == 0 {
-		return errors.New("No signature available")
+// verify checks that the Transaction has a non-nil Key and Kind and that the 
+// signature in the Transaction is indeed correct. Furthermore, it checks
+// that there exists a valid path from the master darc to the signer via user
+// rules.
+func (darcs *collectionDB) verify(tx Transaction) error {
+    if tx == nil {
+		return errors.New("Transaction is nil")
 	}
-	rc := sig.Request.CopyReq()
-	b, err := protobuf.Encode(rc)
-	if err != nil {
-		return err
-	}
+    if tx.Kind == nil {
+		return errors.New("Kind is nil")
+    }
+    if tx.Key == nil {
+		return errors.New("Key is nil")
+    }
+    b := append(append(tx.Key, tx.Kind...), tx,Value...)
 	if b == nil {
 		return errors.New("nothing to verify, message is empty")
 	}
+    sig = tx.Signature
 	pub := sig.Signer.Point
 	err = sign.VerifySchnorr(network.Suite, pub, b, sig.Signature)
 	if err != nil {
 		return err
 	}
 	//Check if path from rule to signer is correct
-	err = darcs.getPath(darcs, req, sig)
+	err = darcs.checkUserPath(sig.Signer)
 	if err != nil {
 		return err
 	}
 	return err
-
 }
 
