@@ -154,7 +154,6 @@ func (s *Service) CreateSkipchain(req *lleap.CreateSkipchain) (*lleap.CreateSkip
 func (s *Service) SetKeyValue(req *lleap.SetKeyValue)
         (*lleap.SetKeyValueResponse, error) {
 	// Check the input arguments
-	// TODO: verify the signature on the key/value pair
 	if req.Version != lleap.CurrentVersion {
 		return nil, errors.New("version mismatch")
 	}
@@ -165,8 +164,10 @@ func (s *Service) SetKeyValue(req *lleap.SetKeyValue)
 		return nil, errors.New("don't have this chain stored")
 	}
     // Verify darc
+    // Note: The verify function needs the collection to be up to date.
+    // TODO: Make sure that is the case.
 	log.Lvl1("Verifying signature")
-    err := s.collectionDB[gid].verify(req.Signature)
+    err := s.collectionDB[gid].verify(req.Transaction)
     if err != nil {
 		log.Lvl1("signature verification failed")
         return nil, err
@@ -178,7 +179,8 @@ func (s *Service) SetKeyValue(req *lleap.SetKeyValue)
 	if _, _, err := coll.GetValue(req.Key); err == nil {
 		return nil, errors.New("cannot overwrite existing value")
 	}
-	err := coll.Store(req.Key, req.Value, req.Signature)
+    collKey = getKey(req.Transaction)
+    err := coll.Store(collKey, req.Value, req.Signature)
 	if err != nil {
 		return nil, errors.New("error while storing in collection: " + err.Error())
 	}
@@ -233,7 +235,7 @@ func (s *Service) GetValue(req *lleap.GetValue) (*lleap.GetValueResponse, error)
 		return nil, errors.New("version mismatch")
 	}
 
-    if err := verify(req.Transaction.Signature), err != nil {
+    if err := verify(req.Transaction), err != nil {
         return nil, err
     }
 	value, sig, err := s.getCollection(req.SkipchainID).GetValue(req.Key)
@@ -244,9 +246,13 @@ func (s *Service) GetValue(req *lleap.GetValue) (*lleap.GetValueResponse, error)
 		Version:   lleap.CurrentVersion,
 		Value:     &value,
 		Signature: &sig,
+        // TODO: Proof
 	}, nil
 }
 
+func getKey(tx Transaction) []bytes {
+    return append(append(tx.Kind, []bytes(":")), tx.Key)
+}
 // TODO: Replace collectionsDB[idStr] with this
 func (s *Service) getCollection(id skipchain.SkipBlockID) *collectionDB {
 	idStr := fmt.Sprintf("%x", id)
