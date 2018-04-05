@@ -51,15 +51,18 @@ type SubjectDarc struct {
 
 type Request struct {
 	//ID of the Darc having the access control policy
+    // Do we need it? Doesn't it always have to be the "root of the Darc-tree"
+    // There might be several trees, though.
 	DarcID ID
 	//ID showing allowed rule
 	RuleID int
 	//Message - Can be a string or a marshalled JSON 
 	Message []byte
+    // The sginature of Message by the Darc corresponding to ID
+    Signature Signature
 }
 
 type Signature struct {
-    Request Request
 	Signature []byte
 	Signer SubjectPK
 }
