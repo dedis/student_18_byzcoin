@@ -49,10 +49,17 @@ const CurrentVersion Version = 1
 // (e.g. a drac...). The key used in the conode's collection will be
 // Kind ':' Key, in order to maintain key uniqueness across different kinds
 // of values.
+// For a Transaction to be valid, there must exist a path from the master-darc
+// in the genesis block to the SubjectPK in Signature.
 type Transaction struct {
     Key []byte
     Kind []byte
     Value []byte
+    // type Signature struct {
+    //     Signature []byte
+    //     Signer SubjectPK
+    // }
+    // The signature is performed on the concatenation of the []bytes
     Signature darc.Signature
 }
 // CreateSkipchain asks the cisc-service to set up a new skipchain.
@@ -105,7 +112,7 @@ type GetValue struct {
 	// SkipchainID represents the skipchain where the value is stored
 	SkipchainID skipchain.SkipBlockID
 	// Key to retrieve
-	Key []byte
+    Transaction Transaction
 }
 
 // GetValueResponse returns the value or an error if the key hasn't been found.
