@@ -65,9 +65,7 @@ type Service struct {
 
 // storage is used to save our data locally.
 type storage struct {
-    // IDBlock stores one identity together with the latest and the currently
-    // proposed skipblock.
-    // Identities map[string]*identity.IDBlock
+    // DarcBlock stores one skipchain together with the latest skipblock.
     DarcBlocks map[string]*DarcBlock
     // PL: Is used to sign the votes
 	Private    map[string]kyber.Scalar
@@ -89,7 +87,7 @@ type Data struct {
     // Root of the merkle tree after applying the transactions to the
     // kv store
     MerkleRoot []byte
-    // We can have multiple Transactions in a single block.
+    // We can (in the future) have multiple Transactions in a single block.
     // However, they should not depend on each other, since if we do 
     // multi-submissions, the order is not well defined. So everything which
     // happens in a single block happends concurrently and no order is specified.
