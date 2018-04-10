@@ -6,9 +6,9 @@ This holds the messages used to communicate with the service over the network.
 
 import (
 	"github.com/dedis/cothority/skipchain"
-    "github.com/dedis/student_18_omniledger/cothority_template/darc"
 	"github.com/dedis/onet"
 	"github.com/dedis/onet/network"
+	"github.com/dedis/student_18_omniledger/cothority_template/darc"
 )
 
 // We need to register all messages so the network knows how to handle them.
@@ -52,16 +52,17 @@ const CurrentVersion Version = 1
 // For a Transaction to be valid, there must exist a path from the master-darc
 // in the genesis block to the SubjectPK in Signature.
 type Transaction struct {
-    Key []byte
-    Kind []byte
-    Value []byte
-    // type Signature struct {
-    //     Signature []byte
-    //     Signer SubjectPK
-    // }
-    // The signature is performed on the concatenation of the []bytes
-    Signature darc.Signature
+	Key   []byte
+	Kind  []byte
+	Value []byte
+	// type Signature struct {
+	//     Signature []byte
+	//     Signer SubjectPK
+	// }
+	// The signature is performed on the concatenation of the []bytes
+	Signature darc.Signature
 }
+
 // CreateSkipchain asks the cisc-service to set up a new skipchain.
 type CreateSkipchain struct {
 	// Version of the protocol
@@ -69,10 +70,10 @@ type CreateSkipchain struct {
 	// Roster defines which nodes participate in the skipchain.
 	Roster onet.Roster
 	// Writers represent keys that are allowed to add new key/value pairs to
-    // the skipchain.
-    // Transaction contains the master darc which defines who is allowed to
-    // write to this skipchain. we will only store its hash.
-    Transaction Transaction
+	// the skipchain.
+	// Transaction contains the master darc which defines who is allowed to
+	// write to this skipchain. we will only store its hash.
+	Transaction Transaction
 }
 
 // CreateSkipchainResponse holds the genesis-block of the new skipchain.
@@ -90,9 +91,9 @@ type SetKeyValue struct {
 	Version Version
 	// SkipchainID is the hash of the first skipblock
 	SkipchainID skipchain.SkipBlockID
-    // Transaction to be done
-    Transaction Transaction
-	}
+	// Transaction to be done
+	Transaction Transaction
+}
 
 // SetKeyValueResponse gives the timestamp and the skipblock-id
 type SetKeyValueResponse struct {
@@ -111,8 +112,8 @@ type GetValue struct {
 	Version Version
 	// SkipchainID represents the skipchain where the value is stored
 	SkipchainID skipchain.SkipBlockID
-	// Key to retrieve
-    Transaction Transaction
+	// The Value field of the transaction is ignored in the GetValue request
+	Transaction Transaction
 }
 
 // GetValueResponse returns the value or an error if the key hasn't been found.

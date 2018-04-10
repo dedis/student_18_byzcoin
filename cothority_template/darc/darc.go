@@ -386,7 +386,7 @@ func (s *Signer) Sign(req *Request) (*Signature, error) {
 		}
 		signature, _ := sign.Schnorr(ed25519.NewAES128SHA256Ed25519(false), key, b)
 		signer := &SubjectPK{Point: pub}
-        return &Signature{Signature: signature, Signer: *signer, Request: req}, nil
+        return &Signature{Signature: signature, Signer: *signer}, nil
 	}
 	return nil, errors.New("signer is of unknown type")
 }
@@ -412,8 +412,7 @@ func (s *Signer) SignWithPath(req *Request, path []int) (*SignaturePath, error) 
 		signature, _ := sign.Schnorr(ed25519.NewAES128SHA256Ed25519(false), key, b)
 		signer := &SubjectPK{Point: pub}
         // TODO: Include request in signature
-		return &SignaturePath{Signature: signature, Signer: *signer, 
-                    Path: path, Request: req}, nil
+		return &SignaturePath{Signature: signature, Signer: *signer, Path: path}, nil
 	}
 	return nil, errors.New("signer is of unknown type")
 }
@@ -455,16 +454,16 @@ func (s *Signer) SignWithPathCheck(req *Request, darcs map[string]*Darc) (*Signa
 	subs := *targetRule.Subjects
 	paths, err = FindAllPaths(subs, &Subject{PK: sub}, darcs, pathindex, paths)
 	if err != nil {
-		return nil, nil, errors.New("There does not seem to be a valid path
-                                    from target darc to signer")
+		return nil, nil, errors.New("There does not seem to be a valid path " +
+                                    "from target darc to signer")
 	}
 	if len(paths) > 1 {
-		return nil, paths, errors.New("Multiple paths present. Sign with
-                                        specific path.")
+		return nil, paths, errors.New("Multiple paths present. Sign with" +
+                                        "specific path.")
 	}
 	signature, _ := sign.Schnorr(ed25519.NewAES128SHA256Ed25519(false), key, b)
 	signer := &SubjectPK{Point: pub}
-	return &Signature{Signature: signature, Signer: *signer, Request: req},
+	return &Signature{Signature: signature, Signer: *signer},
                 nil, nil
 }
 
@@ -739,8 +738,8 @@ func FindUserRuleIndex(rules []*Rule) (int, error) {
 // when called from a different caller than itself, pathIndex and allpaths are 
 // empty, right? TODO: Check this and posiibly write a wrapper for nicer use.
 func FindAllPaths(subjects []*Subject, requester *Subject,
-                    darcs map[string]*Darc, pathIndex []int, allpaths [][]int)
-                    ([][]int, error) {
+                    darcs map[string]*Darc, pathIndex []int,
+                    allpaths [][]int) ([][]int, error) {
 	l := len(allpaths)
 	for i, s := range subjects {
 		if CompareSubjects(s, requester) == true {
