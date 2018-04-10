@@ -3,11 +3,11 @@ package service
 import (
 	"testing"
 
-	"github.com/dedis/cothority/skipchain"
-	"github.com/dedis/kyber/suites"
+	"gopkg.in/dedis/cothority.v2/skipchain"
+	"gopkg.in/dedis/kyber.v2/suites"
 	"github.com/dedis/student_18_omniledger/lleap"
-	"github.com/dedis/onet"
-	"github.com/dedis/onet/log"
+	"gopkg.in/dedis/onet.v2"
+	"gopkg.in/dedis/onet.v2/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

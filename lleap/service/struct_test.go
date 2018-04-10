@@ -8,10 +8,10 @@ import (
 	"testing"
 
 	bolt "github.com/coreos/bbolt"
-	"github.com/dedis/cothority"
+	"gopkg.in/dedis/cothority.v2"
 	"github.com/dedis/lleap"
-	"github.com/dedis/onet"
-	"github.com/dedis/onet/log"
+	"gopkg.in/dedis/onet.v2"
+	"gopkg.in/dedis/onet.v2/log"
 	"github.com/stretchr/testify/require"
 )
 

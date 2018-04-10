@@ -16,10 +16,10 @@ import (
 	"os"
 	"path"
 
-	"github.com/dedis/cothority"
-	"github.com/dedis/onet/app"
-	"github.com/dedis/onet/cfgpath"
-	"github.com/dedis/onet/log"
+	"gopkg.in/dedis/cothority.v2"
+	"gopkg.in/dedis/onet.v2/app"
+	"gopkg.in/dedis/onet.v2/cfgpath"
+	"gopkg.in/dedis/onet.v2/log"
 	cli "gopkg.in/urfave/cli.v1"
 
 	// Import your service:
@@ -27,9 +27,9 @@ import (
 	// Here you can import any other needed service for your conode.
 	// For example, if your service needs cosi available in the server
 	// as well, uncomment this:
-	_ "github.com/dedis/cothority/identity"
-	_ "github.com/dedis/cothority/skipchain"
-	_ "github.com/dedis/cothority/status/service"
+	_ "gopkg.in/dedis/cothority.v2/identity"
+	_ "gopkg.in/dedis/cothority.v2/skipchain"
+	_ "gopkg.in/dedis/cothority.v2/status/service"
 )
 
 func main() {

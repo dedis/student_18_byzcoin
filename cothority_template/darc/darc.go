@@ -25,8 +25,8 @@ import (
 	"gopkg.in/dedis/crypto.v0/ed25519"
 	"gopkg.in/dedis/crypto.v0/sign"
 	"gopkg.in/dedis/crypto.v0/random"
-	"gopkg.in/dedis/onet.v1/log"
-	"gopkg.in/dedis/onet.v1/network"
+	"gopkg.in/dedis/onet.v2/log"
+	// "gopkg.in/dedis/onet.v2/network"
 )
 
 // NewDarc initialises a darc-structure
@@ -514,7 +514,7 @@ func VerifyMultiSig(req *Request, sigs []*Signature, darcs map[string]*Darc) err
 			return errors.New("Nothing to verify, message is empty.")
 		}
 		pub := sig.Signer.Point
-		err = sign.VerifySchnorr(network.Suite, pub, b, sig.Signature)
+		err = sign.VerifySchnorr(ed25519.NewAES128SHA256Ed25519(false), pub, b, sig.Signature)
 		if err != nil {
 			return err
 		}
@@ -557,7 +557,7 @@ func Verify(req *Request, sig *Signature, darcs map[string]*Darc) error {
 		return errors.New("nothing to verify, message is empty")
 	}
 	pub := sig.Signer.Point
-	err = sign.VerifySchnorr(network.Suite, pub, b, sig.Signature)
+	err = sign.VerifySchnorr(ed25519.NewAES128SHA256Ed25519(false), pub, b, sig.Signature)
     // Thus, this function returns nil IFF there is a path from one of the
     // subjects to subject via user-rules inside darcs.
 	if err != nil {
@@ -585,7 +585,7 @@ func VerifySigWithPath(req *Request, sig *SignaturePath, darcs map[string]*Darc)
 		return errors.New("nothing to verify, message is empty")
 	}
 	pub := sig.Signer.Point
-	err = sign.VerifySchnorr(network.Suite, pub, b, sig.Signature)
+	err = sign.VerifySchnorr(ed25519.NewAES128SHA256Ed25519(false), pub, b, sig.Signature)
 	if err != nil {
 		return err
 	}
@@ -783,7 +783,7 @@ func FindAllPaths(subjects []*Subject, requester *Subject,
 // generated.
 func NewEd25519Signer(point abstract.Point, secret abstract.Scalar) *Ed25519Signer {
 	if point == nil || secret == nil {
-		kp := config.NewKeyPair(network.Suite)
+		kp := config.NewKeyPair(ed25519.NewAES128SHA256Ed25519(false))
 		point, secret = kp.Public, kp.Secret
 	}
 	return &Ed25519Signer{

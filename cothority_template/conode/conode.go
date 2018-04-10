@@ -14,8 +14,8 @@ package main
 
 import (
 	// Here you can import any other needed service for your conode.
-	_ "github.com/dedis/cothority/cosi/service"
-	_ "github.com/dedis/cothority/status/service"
+	_ "gopkg.in/dedis/cothority.v2/cosi/service"
+	_ "gopkg.in/dedis/cothority.v2/status/service"
 	_ "github.com/dedis/cothority_template/service"
 	"gopkg.in/dedis/onet.v1/app"
 )

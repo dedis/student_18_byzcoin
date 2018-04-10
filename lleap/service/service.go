@@ -19,18 +19,19 @@ import (
 	"sync"
 
 	"gopkg.in/dedis/crypto.v0/sign"
+	"gopkg.in/dedis/crypto.v0/ed25519"
 
-	// "github.com/dedis/cothority"
-	"github.com/dedis/cothority/skipchain"
+	"gopkg.in/dedis/cothority.v2"
+	"gopkg.in/dedis/cothority.v2/skipchain"
 	"github.com/dedis/kyber"
-	// "github.com/dedis/kyber/sign/schnorr"
-	// "github.com/dedis/kyber/util/key"
+	// "gopkg.in/dedis/kyber.v2/sign/schnorr"
+	// "gopkg.in/dedis/kyber.v2/util/key"
 	"github.com/dedis/student_18_omniledger/lleap"
 	"github.com/dedis/student_18_omniledger/lleap/collection"
     "github.com/dedis/student_18_omniledger/cothority_template/darc"
-	"github.com/dedis/onet"
-	"github.com/dedis/onet/log"
-	"gopkg.in/dedis/onet.v1/network"
+	"gopkg.in/dedis/onet.v2"
+	"gopkg.in/dedis/onet.v2/log"
+	"gopkg.in/dedis/onet.v2/network"
 )
 
 // Used for tests
@@ -371,7 +372,7 @@ func (s *Service) VerifyBlock(sbID []byte, sb *skipchain.SkipBlock) bool {
 			log.Lvl4("Always accepting genesis-block")
 			return nil
 		}
-		_, dataInt, err := network.Unmarshal(sb.Data)
+		_, dataInt, err := network.Unmarshal(sb.Data, cothority.Suite)
 		if err != nil {
 			return errors.New("got unknown packet")
 		}
@@ -402,7 +403,7 @@ func (s *Service) VerifyBlock(sbID []byte, sb *skipchain.SkipBlock) bool {
 		}
         // func Unmarshal(buf []byte, suite Suite) (MessageTypeID, Message, error)
         // thus dataInt : Message, and Message = interface{}
-		_, dataInt, err = network.Unmarshal(latest.Data)
+		_, dataInt, err = network.Unmarshal(latest.Data, cothority.Suite)
 		if err != nil {
 			return err
 		}
@@ -563,7 +564,7 @@ func (darcs *collectionDB) verify(tx *lleap.Transaction) error {
 	}
     sig := tx.Signature
 	pub := sig.Signer.Point
-    err := sign.VerifySchnorr(network.Suite, pub, b, sig.Signature)
+    err := sign.VerifySchnorr(ed25519.NewAES128SHA256Ed25519(false), pub, b, sig.Signature)
 	if err != nil {
 		return err
 	}

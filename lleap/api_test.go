@@ -4,9 +4,9 @@ import (
 	"testing"
 
 	// We need to include the service so it is started.
-	"github.com/dedis/kyber/suites"
+	"gopkg.in/dedis/kyber.v2/suites"
 	_ "github.com/dedis/lleap/service"
-	"github.com/dedis/onet/log"
+	"gopkg.in/dedis/onet.v2/log"
 )
 
 var tSuite = suites.MustFind("Ed25519")
