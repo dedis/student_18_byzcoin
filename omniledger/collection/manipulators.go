@@ -17,7 +17,7 @@ func (this *Collection) Add(key []byte, values ...interface{}) error {
 		rawvalues[index] = this.fields[index].Encode(values[index])
 	}
 
-	path := sha256(key)
+	path := hash(key)
 
 	depth := 0
 	cursor := this.root
@@ -56,7 +56,7 @@ func (this *Collection) Add(key []byte, values ...interface{}) error {
 			}
 
 			collision := *cursor
-			collisionpath := sha256(collision.key)
+			collisionpath := hash(collision.key)
 			collisionstep := bit(collisionpath[:], depth)
 
 			if this.transaction.ongoing {
@@ -110,7 +110,7 @@ func (this *Collection) Set(key []byte, values ...interface{}) error {
 		panic("Wrong number of values provided.")
 	}
 
-	path := sha256(key)
+	path := hash(key)
 
 	depth := 0
 	cursor := this.root
@@ -195,7 +195,7 @@ func (this *Collection) SetField(key []byte, field int, value interface{}) error
 }
 
 func (this *Collection) Remove(key []byte) error {
-	path := sha256(key)
+	path := hash(key)
 
 	depth := 0
 	cursor := this.root

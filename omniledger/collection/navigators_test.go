@@ -59,8 +59,8 @@ func TestNavigatorsRecord(test *testing.T) {
 		binary.BigEndian.PutUint64(keyi, uint64(entries[i]))
 		binary.BigEndian.PutUint64(keyj, uint64(entries[j]))
 
-		pathi := sha256(keyi)
-		pathj := sha256(keyj)
+		pathi := hash(keyi)
+		pathj := hash(keyj)
 
 		for index := 0; index < csha256.Size; index++ {
 			if pathi[index] < pathj[index] {

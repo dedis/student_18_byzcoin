@@ -1,20 +1,22 @@
 package collection
 
-import "errors"
-import csha256 "crypto/sha256"
-import "github.com/dedis/protobuf"
+import (
+	"errors"
+
+	"github.com/dedis/protobuf"
+)
 
 // dump
 
 type dump struct {
-	Label [csha256.Size]byte
+	Label [hashSize]byte
 
 	Key    []byte   `protobuf:"opt"`
 	Values [][]byte `protobuf:"opt"`
 
 	Children struct {
-		Left  [csha256.Size]byte
-		Right [csha256.Size]byte
+		Left  [hashSize]byte
+		Right [hashSize]byte
 	}
 }
 
@@ -37,7 +39,7 @@ func dumpnode(node *node) (dump dump) {
 // Getters
 
 func (this *dump) leaf() bool {
-	var empty [csha256.Size]byte
+	var empty [hashSize]byte
 	return (this.Children.Left == empty) && (this.Children.Right == empty)
 }
 
@@ -45,9 +47,9 @@ func (this *dump) leaf() bool {
 
 func (this *dump) consistent() bool {
 	if this.leaf() {
-		return this.Label == sha256(true, this.Key[:], this.Values)
+		return this.Label == hash(true, this.Key[:], this.Values)
 	} else {
-		return this.Label == sha256(false, this.Values, this.Children.Left[:], this.Children.Right[:])
+		return this.Label == hash(false, this.Values, this.Children.Left[:], this.Children.Right[:])
 	}
 }
 
@@ -101,7 +103,7 @@ func (this Proof) Match() bool {
 		return false
 	}
 
-	path := sha256(this.key)
+	path := hash(this.key)
 	depth := len(this.steps) - 1
 
 	if bit(path[:], depth) {
@@ -116,7 +118,7 @@ func (this Proof) Values() ([]interface{}, error) {
 		return []interface{}{}, errors.New("Proof has no steps.")
 	}
 
-	path := sha256(this.key)
+	path := hash(this.key)
 	depth := len(this.steps) - 1
 
 	match := false
@@ -169,7 +171,7 @@ func (this Proof) consistent() bool {
 	}
 
 	cursor := &(this.root)
-	path := sha256(this.key)
+	path := hash(this.key)
 
 	for depth := 0; depth < len(this.steps); depth++ {
 		if (cursor.Children.Left != this.steps[depth].Left.Label) || (cursor.Children.Right != this.steps[depth].Right.Label) {

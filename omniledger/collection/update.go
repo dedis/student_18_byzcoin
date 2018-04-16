@@ -1,7 +1,6 @@
 package collection
 
 import "errors"
-import csha256 "crypto/sha256"
 
 // Interfaces
 
@@ -33,7 +32,7 @@ type Update struct {
 
 type proxy struct {
 	collection *Collection
-	paths      map[[csha256.Size]byte]bool
+	paths      map[[hashSize]byte]bool
 }
 
 // proxy
@@ -42,10 +41,10 @@ type proxy struct {
 
 func (this *Collection) proxy(keys [][]byte) (proxy proxy) {
 	proxy.collection = this
-	proxy.paths = make(map[[csha256.Size]byte]bool)
+	proxy.paths = make(map[[hashSize]byte]bool)
 
 	for index := 0; index < len(keys); index++ {
-		proxy.paths[sha256(keys[index])] = true
+		proxy.paths[hash(keys[index])] = true
 	}
 
 	return
@@ -97,7 +96,7 @@ func (this proxy) Remove(key []byte) error {
 // Private methods
 
 func (this proxy) has(key []byte) bool {
-	path := sha256(key)
+	path := hash(key)
 	return this.paths[path]
 }
 

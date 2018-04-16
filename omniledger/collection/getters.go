@@ -16,7 +16,7 @@ func (this *Collection) Get(key []byte) getter {
 // Methods
 
 func (this getter) Record() (Record, error) {
-	path := sha256(this.key)
+	path := hash(this.key)
 
 	depth := 0
 	cursor := this.collection.root
@@ -52,7 +52,7 @@ func (this getter) Proof() (Proof, error) {
 
 	proof.root = dumpnode(this.collection.root)
 
-	path := sha256(this.key)
+	path := hash(this.key)
 
 	depth := 0
 	cursor := this.collection.root

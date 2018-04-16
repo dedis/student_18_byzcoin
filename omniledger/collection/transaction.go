@@ -1,7 +1,5 @@
 package collection
 
-import csha256 "crypto/sha256"
-
 // Methods (collection) (transaction methods)
 
 func (this *Collection) Begin() {
@@ -52,8 +50,8 @@ func (this *Collection) End() {
 }
 
 func (this *Collection) Collect() {
-	var explore func(*node, [csha256.Size]byte, int)
-	explore = func(node *node, path [csha256.Size]byte, bit int) {
+	var explore func(*node, [hashSize]byte, int)
+	explore = func(node *node, path [hashSize]byte, bit int) {
 		if !(node.known) {
 			return
 		}
@@ -77,7 +75,7 @@ func (this *Collection) Collect() {
 		return
 	}
 
-	var path [csha256.Size]byte
+	var path [hashSize]byte
 	none := true
 
 	setbit(path[:], 0, false)

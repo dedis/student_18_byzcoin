@@ -1,9 +1,7 @@
 package collection
 
-import csha256 "crypto/sha256"
-
 type node struct {
-	label [csha256.Size]byte
+	label [hashSize]byte
 
 	known bool
 

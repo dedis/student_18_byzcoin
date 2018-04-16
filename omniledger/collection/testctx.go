@@ -1,7 +1,6 @@
 package collection
 
 import "testing"
-import csha256 "crypto/sha256"
 
 // testctxstruct
 
@@ -50,7 +49,7 @@ func (this testctxverifier) node(prefix string, collection *Collection, node *no
 			return
 		}
 
-		if node.label != sha256(true, node.key, node.values) {
+		if node.label != hash(true, node.key, node.values) {
 			this.test.Error(this.file, prefix, "Wrong leaf node label.")
 			return
 		}
@@ -65,7 +64,7 @@ func (this testctxverifier) node(prefix string, collection *Collection, node *no
 			return
 		}
 
-		if node.label != sha256(false, node.values, node.children.left.label[:], node.children.right.label[:]) {
+		if node.label != hash(false, node.values, node.children.left.label[:], node.children.right.label[:]) {
 			this.test.Error(this.file, prefix, "Wrong internal node label.")
 			return
 		}
@@ -93,7 +92,7 @@ func (this testctxverifier) treerecursion(prefix string, collection *Collection,
 	if node.leaf() {
 		if !(node.placeholder()) {
 			for index := 0; index < len(path); index++ {
-				keyhash := sha256(node.key)
+				keyhash := hash(node.key)
 				if path[index] != bit(keyhash[:], index) {
 					this.test.Error(this.file, prefix, "Leaf node on wrong path.")
 				}
@@ -123,7 +122,7 @@ func (this testctxverifier) scoperecursion(prefix string, collection *Collection
 		return
 	}
 
-	var pathbuf [csha256.Size]byte
+	var pathbuf [hashSize]byte
 
 	for index := 0; index < len(path); index++ {
 		setbit(pathbuf[:], index, path[index])
@@ -149,7 +148,7 @@ func (this testctxverifier) scoperecursion(prefix string, collection *Collection
 }
 
 func (this testctxverifier) scope(prefix string, collection *Collection) {
-	var pathbuf [csha256.Size]byte
+	var pathbuf [hashSize]byte
 	none := true
 
 	setbit(pathbuf[:], 0, false)

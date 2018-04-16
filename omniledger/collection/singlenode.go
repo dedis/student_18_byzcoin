@@ -25,7 +25,7 @@ func (this *Collection) update(node *node) error {
 	}
 
 	if node.leaf() {
-		node.label = sha256(true, node.key, node.values)
+		node.label = hash(true, node.key, node.values)
 	} else {
 		if !(node.children.left.known) || !(node.children.right.known) {
 			return errors.New("Updating internal node with unknown children.")
@@ -43,7 +43,7 @@ func (this *Collection) update(node *node) error {
 			node.values[index] = parentvalue
 		}
 
-		node.label = sha256(false, node.values, node.children.left.label[:], node.children.right.label[:])
+		node.label = hash(false, node.values, node.children.left.label[:], node.children.right.label[:])
 	}
 
 	return nil

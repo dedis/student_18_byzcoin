@@ -9,7 +9,7 @@ func TestSha256(test *testing.T) {
 
 	check := func(name string, hexref string, item interface{}, items ...interface{}) {
 		reference, _ := hex.DecodeString(hexref)
-		response := sha256(item, items...)
+		response := hash(item, items...)
 
 		for i := 0; i < csha256.Size; i++ {
 			if response[i] != reference[i] {
@@ -49,15 +49,15 @@ func TestSha256(test *testing.T) {
 	check("[variadic]", "c4746029b1ace69bea143f17e777bc749f0a6139842321de4f79fa938f1ad799", false, int8(4), int16(1024), int32(29854536), int64(27562875624), uint8(9), uint16(8785), uint32(973583475), uint64(9854398635453), "Hello variadic")
 
 	ctx.should_panic("[int]", func() {
-		sha256(33)
+		hash(33)
 	})
 
 	ctx.should_panic("[float]", func() {
-		sha256(33.4)
+		hash(33.4)
 	})
 
 	ctx.should_panic("[array]", func() {
-		sha256([3]int32{1, 2, 3})
+		hash([3]int32{1, 2, 3})
 	})
 
 	ctx.should_panic("[struct]", func() {
@@ -65,11 +65,11 @@ func TestSha256(test *testing.T) {
 			i int
 		}
 
-		sha256(dummy{3})
+		hash(dummy{3})
 	})
 
 	ctx.should_panic("[pointer]", func() {
 		dummy := uint32(4)
-		sha256(&dummy)
+		hash(&dummy)
 	})
 }

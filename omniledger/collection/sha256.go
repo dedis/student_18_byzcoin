@@ -1,10 +1,14 @@
 package collection
 
-import "reflect"
-import csha256 "crypto/sha256"
-import "encoding/binary"
+import (
+	"crypto/sha256"
+	"encoding/binary"
+	"reflect"
+)
 
-func sha256(item interface{}, items ...interface{}) [csha256.Size]byte {
+const hashSize = sha256.Size
+
+func hash(item interface{}, items ...interface{}) [hashSize]byte {
 	const (
 		boolid = iota
 		int8id
@@ -265,5 +269,5 @@ func sha256(item interface{}, items ...interface{}) [csha256.Size]byte {
 		cursor = write(cursor, variadicitem)
 	}
 
-	return csha256.Sum256(buffer)
+	return sha256.Sum256(buffer)
 }
