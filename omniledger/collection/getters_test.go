@@ -111,7 +111,7 @@ func TestGettersProof(test *testing.T) {
 			test.Error("[getters.go]", "[proof]", "Label mismatch between root children and first step.")
 		}
 
-		path := sha256(key)
+		path := hash(key)
 
 		for depth := 0; depth < len(proof.steps)-1; depth++ {
 			if !(proof.steps[depth].Left.consistent()) || !(proof.steps[depth].Right.consistent()) {
@@ -141,7 +141,7 @@ func TestGettersProof(test *testing.T) {
 		key := make([]byte, 8)
 		binary.BigEndian.PutUint64(key, uint64(index))
 
-		path := sha256(key)
+		path := hash(key)
 
 		if bit(path[:], 0) {
 			continue

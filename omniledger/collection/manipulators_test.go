@@ -280,12 +280,12 @@ func TestManipulatorsRemove(test *testing.T) {
 	}
 
 	collision := func(key []byte, bits int) []byte {
-		target := sha256(key)
+		target := hash(key)
 		sample := make([]byte, 8)
 
 		for index := 0; ; index++ {
 			binary.BigEndian.PutUint64(sample, uint64(index))
-			hash := sha256(sample)
+			hash := hash(sample)
 			if match(hash[:], target[:], bits) {
 				return sample
 			}

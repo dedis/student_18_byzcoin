@@ -15,7 +15,7 @@ func (this *Collection) Verify(proof Proof) bool {
 		proof.root.to(this.root)
 	}
 
-	path := sha256(proof.key)
+	path := hash(proof.key)
 	cursor := this.root
 
 	for depth := 0; depth < len(proof.steps); depth++ {

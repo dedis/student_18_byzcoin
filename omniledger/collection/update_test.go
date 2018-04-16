@@ -15,7 +15,7 @@ func TestUpdateProxy(test *testing.T) {
 		test.Error("[update.go]", "[proxy]", "proxy() method sets the wrong number of paths.")
 	}
 
-	if !(proxy.paths[sha256([]byte("firstkey"))]) || !(proxy.paths[sha256([]byte("secondkey"))]) || !(proxy.paths[sha256([]byte("thirdkey"))]) {
+	if !(proxy.paths[hash([]byte("firstkey"))]) || !(proxy.paths[hash([]byte("secondkey"))]) || !(proxy.paths[hash([]byte("thirdkey"))]) {
 		test.Error("[update.go]", "[proxy]", "proxy() method does not set the paths provided.")
 	}
 }
@@ -225,7 +225,7 @@ func TestUpdatePrepare(test *testing.T) {
 		test.Error("[update.go]", "[prepare]", "Prepare() sets the wrong number of proxy paths.")
 	}
 
-	if !(update.proxy.paths[sha256([]byte("mykey"))]) {
+	if !(update.proxy.paths[hash([]byte("mykey"))]) {
 		test.Error("[update.go]", "[prepare]", "Prepare() sets wrong proxy paths.")
 	}
 
@@ -262,7 +262,7 @@ func TestUpdatePrepare(test *testing.T) {
 		test.Error("[update.go]", "[prepare]", "Prepare() sets the wrong number of proxy paths.")
 	}
 
-	if !(update.proxy.paths[sha256([]byte("mykey"))]) || !(update.proxy.paths[sha256([]byte("myotherkey"))]) {
+	if !(update.proxy.paths[hash([]byte("mykey"))]) || !(update.proxy.paths[hash([]byte("myotherkey"))]) {
 		test.Error("[update.go]", "[prepare]", "Prepare() sets wrong proxy paths.")
 	}
 

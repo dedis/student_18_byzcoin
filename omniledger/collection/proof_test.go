@@ -1,7 +1,6 @@
 package collection
 
 import "testing"
-import csha256 "crypto/sha256"
 import "encoding/binary"
 
 func TestProofDumpNode(test *testing.T) {
@@ -59,7 +58,7 @@ func TestProofDumpNode(test *testing.T) {
 		test.Error("[proof.go]", "[dumpnode]", "dumpnode() sets the wrong values on leaf.")
 	}
 
-	var empty [csha256.Size]byte
+	var empty [hashSize]byte
 
 	if (leafdump.Children.Left != empty) || (leafdump.Children.Right != empty) {
 		test.Error("[proof.go]", "[dumpnode]", "dumpnode() sets non-null children labels on leaf.")
@@ -207,12 +206,12 @@ func TestProofGetters(test *testing.T) {
 
 func TestProofMatchValues(test *testing.T) {
 	collision := func(key []byte, bits int) []byte {
-		target := sha256(key)
+		target := hash(key)
 		sample := make([]byte, 8)
 
 		for index := 0; ; index++ {
 			binary.BigEndian.PutUint64(sample, uint64(index))
-			hash := sha256(sample)
+			hash := hash(sample)
 			if match(hash[:], target[:], bits) && !match(hash[:], target[:], bits+1) {
 				return sample
 			}
@@ -234,7 +233,7 @@ func TestProofMatchValues(test *testing.T) {
 	proof.key = firstkey
 	proof.root = dumpnode(collection.root)
 
-	path := sha256(firstkey)
+	path := hash(firstkey)
 	cursor := collection.root
 
 	for depth := 0; depth < 6; depth++ {

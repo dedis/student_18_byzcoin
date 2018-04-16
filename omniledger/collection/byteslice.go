@@ -54,12 +54,12 @@ func match(lho []byte, rho []byte, bits int) bool {
 	return true
 }
 
-func digest(buffer []byte) [csha256.Size]byte {
+func digest(buffer []byte) [hashSize]byte {
 	if len(buffer) != csha256.Size {
 		panic("Wrong slice length.")
 	}
 
-	var digest [csha256.Size]byte
+	var digest [hashSize]byte
 
 	for index := 0; index < csha256.Size; index++ {
 		digest[index] = buffer[index]
