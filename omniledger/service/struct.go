@@ -49,17 +49,11 @@ func (c *collectionDB) loadAll() {
 	})
 }
 
-func (c *collectionDB) Store(key, value, sig []byte) error {
-	c.coll.Add(key, value, sig)
+func (c *collectionDB) Store(key, value []byte) error {
+	c.coll.Add(key, value)
 	err := c.db.Update(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket([]byte(c.bucketName))
 		if err := bucket.Put(key, value); err != nil {
-			return err
-		}
-		keysig := make([]byte, len(key)+3)
-		copy(keysig, key)
-		keysig = append(keysig, []byte("sig")...)
-		if err := bucket.Put(keysig, sig); err != nil {
 			return err
 		}
 		return nil

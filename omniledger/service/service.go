@@ -94,11 +94,7 @@ func (s *Service) CreateSkipchain(req *CreateSkipchain) (
 
 	tmpColl := collection.New(collection.Data{}, collection.Data{})
 	key := getKey(&req.Transaction)
-	sigBuf, err := network.Marshal(&req.Transaction.Signature)
-	if err != nil {
-		return nil, errors.New("Couldn't marshal Signature: " + err.Error())
-	}
-	tmpColl.Add(key, req.Transaction.Value, sigBuf)
+	tmpColl.Add(key, req.Transaction.Value)
 
 	mr := tmpColl.GetRoot()
 	data := &Data{
@@ -132,7 +128,7 @@ func (s *Service) CreateSkipchain(req *CreateSkipchain) (
 		LatestSkipblock: ssbReply.Latest,
 	}
 
-	err = s.getCollection(skID).Store(key, req.Transaction.Value, sigBuf)
+	err = s.getCollection(skID).Store(key, req.Transaction.Value)
 	if err != nil {
 		return nil, errors.New(
 			"error while storing in collection: " + err.Error())
@@ -177,17 +173,13 @@ func (s *Service) SetKeyValue(req *SetKeyValue) (*SetKeyValueResponse, error) {
 	if _, _, err := coll.GetValue(key); err == nil {
 		return nil, errors.New("cannot overwrite existing value")
 	}
-	sigBuf, err := network.Marshal(&req.Transaction.Signature)
-	if err != nil {
-		return nil, errors.New("Couldn't marshal Signature: " + err.Error())
-	}
 
 	// Store the pair in a copy of the collection to get the root hash.
 	// Once the block is accepted by the cothority, we store it in the real
 	// collectionBD.
 	var collCopy collection.Collection
 	collCopy = s.getCollection(req.SkipchainID).coll
-	collCopy.Add(key, req.Transaction.Value, sigBuf)
+	collCopy.Add(key, req.Transaction.Value)
 	mr := collCopy.GetRoot()
 	data := &Data{
 		MerkleRoot:   mr,
@@ -214,7 +206,7 @@ func (s *Service) SetKeyValue(req *SetKeyValue) (*SetKeyValueResponse, error) {
 
 	// Now we know the block is accepted, so we can apply the the Transaction
 	// to our collectionDB.
-	err = coll.Store(key, req.Transaction.Value, sigBuf)
+	err = coll.Store(key, req.Transaction.Value)
 	if err != nil {
 		return nil, errors.New(
 			"error while storing in collection: " + err.Error())
