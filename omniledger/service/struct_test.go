@@ -31,6 +31,24 @@ func TestCollectionDBStrange(t *testing.T) {
 	require.Equal(t, []byte("value"), value)
 }
 
+func TestCollectionDBtryHash(t *testing.T) {
+	tmpDB, err := ioutil.TempFile("", "tmpDB")
+	require.Nil(t, err)
+	tmpDB.Close()
+	defer os.Remove(tmpDB.Name())
+
+	db, err := bolt.Open(tmpDB.Name(), 0600, nil)
+	require.Nil(t, err)
+
+	cdb := newCollectionDB(db, "coll1")
+	mrTrial := cdb.tryHash([]byte("first"), []byte("value"))
+	_, err = cdb.GetValue([]byte("first"))
+	require.EqualError(t, err, "no match found")
+	cdb.Store([]byte("first"), []byte("value"))
+	mrReal := cdb.RootHash()
+	require.Equal(t, mrTrial, mrReal)
+}
+
 func TestCollectionDB(t *testing.T) {
 	kvPairs := 16
 
