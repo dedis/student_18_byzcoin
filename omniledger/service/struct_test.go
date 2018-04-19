@@ -24,12 +24,11 @@ func TestCollectionDBStrange(t *testing.T) {
 	require.Nil(t, err)
 
 	cdb := newCollectionDB(db, "coll1")
-	err = cdb.Store([]byte("first"), []byte("value"), []byte("mysig"))
+	err = cdb.Store([]byte("first"), []byte("value"))
 	require.Nil(t, err)
-	value, sig, err := cdb.GetValue([]byte("first"))
+	value, err := cdb.GetValue([]byte("first"))
 	require.Nil(t, err)
 	require.Equal(t, []byte("value"), value)
-	require.Equal(t, []byte("mysig"), sig)
 }
 
 func TestCollectionDB(t *testing.T) {
@@ -45,22 +44,20 @@ func TestCollectionDB(t *testing.T) {
 
 	cdb := newCollectionDB(db, "coll1")
 	pairs := map[string]string{}
-	mysig := []byte("mysignature")
 	for i := 0; i < kvPairs; i++ {
 		pairs[fmt.Sprintf("Key%d", i)] = fmt.Sprintf("value%d", i)
 	}
 
 	// Store all key/value pairs
 	for k, v := range pairs {
-		require.Nil(t, cdb.Store([]byte(k), []byte(v), mysig))
+		require.Nil(t, cdb.Store([]byte(k), []byte(v)))
 	}
 
 	// Verify it's all there
 	for k, v := range pairs {
-		stored, sig, err := cdb.GetValue([]byte(k))
+		stored, err := cdb.GetValue([]byte(k))
 		require.Nil(t, err)
 		require.Equal(t, v, string(stored))
-		require.Equal(t, mysig, sig)
 	}
 
 	// Get a new db handler
@@ -68,7 +65,7 @@ func TestCollectionDB(t *testing.T) {
 
 	// Verify it's all there
 	for k, v := range pairs {
-		stored, _, err := cdb2.GetValue([]byte(k))
+		stored, err := cdb2.GetValue([]byte(k))
 		require.Nil(t, err)
 		require.Equal(t, v, string(stored))
 	}

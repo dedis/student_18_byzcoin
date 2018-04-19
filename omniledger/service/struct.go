@@ -20,7 +20,7 @@ func newCollectionDB(db *bolt.DB, name string) *collectionDB {
 	c := &collectionDB{
 		db:         db,
 		bucketName: name,
-		coll:       collection.New(collection.Data{}, collection.Data{}),
+		coll:       collection.New(collection.Data{}),
 	}
 	c.db.Update(func(tx *bolt.Tx) error {
 		_, err := tx.CreateBucket([]byte(name))
@@ -41,8 +41,7 @@ func (c *collectionDB) loadAll() {
 		cur := b.Cursor()
 
 		for k, v := cur.First(); k != nil; k, v = cur.Next() {
-			sig := b.Get(append(k, []byte("sig")...))
-			c.coll.Add(k, v, sig)
+			c.coll.Add(k, v)
 		}
 
 		return nil
@@ -61,7 +60,15 @@ func (c *collectionDB) Store(key, value []byte) error {
 	return err
 }
 
-func (c *collectionDB) GetValue(key []byte) (value, sig []byte, err error) {
+// tryHash returns the merkle root of the collection as if the key value pair
+// had been added, without actually adding it.
+func (c *collectionDB) tryHash(key, value []byte) []byte {
+	c.coll.Add(key, value)
+	defer c.coll.Remove(key)
+	return c.coll.GetRoot()
+}
+
+func (c *collectionDB) GetValue(key []byte) (value []byte, err error) {
 	// err = c.db.Update(func(tx *bolt.Tx) error {
 	// 	bucket := tx.Bucket([]byte(c.bucketName))
 	// 	value = bucket.Get(key)
@@ -86,11 +93,6 @@ func (c *collectionDB) GetValue(key []byte) (value, sig []byte, err error) {
 	value, ok := hashes[0].([]byte)
 	if !ok {
 		err = errors.New("the value is not of type []byte")
-		return
-	}
-	sig, ok = hashes[1].([]byte)
-	if !ok {
-		err = errors.New("the signature is not of type []byte")
 		return
 	}
 	return

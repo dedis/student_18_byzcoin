@@ -92,7 +92,7 @@ func (s *Service) CreateSkipchain(req *CreateSkipchain) (
 
 	kp := key.NewKeyPair(cothority.Suite)
 
-	tmpColl := collection.New(collection.Data{}, collection.Data{})
+	tmpColl := collection.New(collection.Data{})
 	key := getKey(&req.Transaction)
 	tmpColl.Add(key, req.Transaction.Value)
 
@@ -170,7 +170,7 @@ func (s *Service) SetKeyValue(req *SetKeyValue) (*SetKeyValueResponse, error) {
 
 	coll := s.getCollection(req.SkipchainID)
 	key := getKey(&req.Transaction)
-	if _, _, err := coll.GetValue(key); err == nil {
+	if _, err := coll.GetValue(key); err == nil {
 		return nil, errors.New("cannot overwrite existing value")
 	}
 
@@ -233,14 +233,13 @@ func (s *Service) GetValue(req *GetValue) (*GetValueResponse, error) {
 	}
 
 	key := append(append(req.Kind, []byte(":")...), req.Key...)
-	value, sig, err := s.getCollection(req.SkipchainID).GetValue(key)
+	value, err := s.getCollection(req.SkipchainID).GetValue(key)
 	if err != nil {
 		return nil, errors.New("couldn't get value for key: " + err.Error())
 	}
 	return &GetValueResponse{
-		Version:   CurrentVersion,
-		Value:     &value,
-		Signature: &sig,
+		Version: CurrentVersion,
+		Value:   &value,
 	}, nil
 }
 
