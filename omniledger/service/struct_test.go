@@ -26,12 +26,19 @@ func TestCollectionDBStrange(t *testing.T) {
 	require.Nil(t, err)
 
 	cdb := newCollectionDB(db, testName)
-	err = cdb.Store([]byte("first"), []byte("value"), []byte("mysig"))
+	key := []byte("first")
+	value := []byte("value")
+	kind := []byte("mykind")
+	err = cdb.Store(&Transaction{
+		Key:   key,
+		Value: value,
+		Kind:  kind,
+	})
 	require.Nil(t, err)
-	value, sig, err := cdb.GetValue([]byte("first"))
+	v, k, err := cdb.GetValueKind([]byte("first"))
 	require.Nil(t, err)
-	require.Equal(t, []byte("value"), value)
-	require.Equal(t, []byte("mysig"), sig)
+	require.Equal(t, value, v)
+	require.Equal(t, kind, k)
 }
 
 func TestCollectionDB(t *testing.T) {
@@ -47,22 +54,27 @@ func TestCollectionDB(t *testing.T) {
 
 	cdb := newCollectionDB(db, testName)
 	pairs := map[string]string{}
-	mysig := []byte("mysignature")
+	mykind := []byte("mykind")
 	for i := 0; i < kvPairs; i++ {
 		pairs[fmt.Sprintf("Key%d", i)] = fmt.Sprintf("value%d", i)
 	}
 
 	// Store all key/value pairs
 	for k, v := range pairs {
-		require.Nil(t, cdb.Store([]byte(k), []byte(v), mysig))
+		tr := &Transaction{
+			Key:   []byte(k),
+			Value: []byte(v),
+			Kind:  mykind,
+		}
+		require.Nil(t, cdb.Store(tr))
 	}
 
 	// Verify it's all there
 	for k, v := range pairs {
-		stored, sig, err := cdb.GetValue([]byte(k))
+		stored, kind, err := cdb.GetValueKind([]byte(k))
 		require.Nil(t, err)
 		require.Equal(t, v, string(stored))
-		require.Equal(t, mysig, sig)
+		require.Equal(t, mykind, kind)
 	}
 
 	// Get a new db handler
@@ -70,7 +82,7 @@ func TestCollectionDB(t *testing.T) {
 
 	// Verify it's all there
 	for k, v := range pairs {
-		stored, _, err := cdb2.GetValue([]byte(k))
+		stored, _, err := cdb2.GetValueKind([]byte(k))
 		require.Nil(t, err)
 		require.Equal(t, v, string(stored))
 	}

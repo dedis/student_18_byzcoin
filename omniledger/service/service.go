@@ -5,15 +5,15 @@
 package service
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"sync"
 	"time"
 
 	"gopkg.in/dedis/cothority.v2"
+	"gopkg.in/dedis/cothority.v2/messaging"
 	"gopkg.in/dedis/cothority.v2/skipchain"
-	"gopkg.in/dedis/kyber.v2"
-	"gopkg.in/dedis/kyber.v2/util/key"
 	"gopkg.in/dedis/onet.v2"
 	"gopkg.in/dedis/onet.v2/log"
 	"gopkg.in/dedis/onet.v2/network"
@@ -32,7 +32,7 @@ func init() {
 	var err error
 	lleapID, err = onet.RegisterNewService(ServiceName, newService)
 	log.ErrFatal(err)
-	network.RegisterMessages(&storage{}, &Data{})
+	network.RegisterMessages(&storage{}, &Data{}, &updateCollection{})
 }
 
 // Service is our lleap-service
@@ -43,6 +43,9 @@ type Service struct {
 	// collections cannot be stored, so they will be re-created whenever the
 	// service reloads.
 	collectionDB map[string]*collectionDB
+	// propagate the new transactions
+	propagateTransactions messaging.PropagationFunc
+	propTimeout           time.Duration
 
 	storage *storage
 }
@@ -51,22 +54,13 @@ type Service struct {
 // than one structure.
 const storageID = "main"
 
-// Data is the data passed to the Skipchain
-type Data struct {
-	// Root of the merkle tree after applying the transactions to the
-	// kv store
-	MerkleRoot []byte
-	// The transactions applied to the kv store with this block
-	Transactions []*Transaction
-	Timestamp    int64
-	Roster       *onet.Roster
-}
-
 // storage is used to save our data locally.
 type storage struct {
-	// PL: Is used to sign the votes
-	Private map[string]kyber.Scalar
 	sync.Mutex
+}
+
+type updateCollection struct {
+	ID skipchain.SkipBlockID
 }
 
 // CreateSkipchain asks the cisc-service to create a new skipchain ready to
@@ -80,56 +74,126 @@ func (s *Service) CreateSkipchain(req *CreateSkipchain) (
 		return nil, errors.New("version mismatch")
 	}
 
-	kp := key.NewKeyPair(cothority.Suite)
-
-	tmpColl := collection.New(collection.Data{}, collection.Data{})
-	sigBuf, err := network.Marshal(&req.Transaction.Signature)
+	sb, err := s.createNewBlock(nil, &req.Roster, []*Transaction{&req.Transaction})
 	if err != nil {
-		return nil, errors.New("Couldn't marshal Signature: " + err.Error())
+		return nil, err
 	}
-	err = tmpColl.Add(req.Transaction.Key, req.Transaction.Value, sigBuf)
-	if err != nil {
-		return nil, errors.New("error while storing in collection: " + err.Error())
+	s.save()
+	return &CreateSkipchainResponse{
+		Version:   CurrentVersion,
+		Skipblock: sb,
+	}, nil
+}
+
+// createNewBlock creates a new block and proposes it to the
+// skipchain-service. Once the block has been created, we
+// inform all nodes to update their internal collections
+// to include the new transactions.
+func (s *Service) createNewBlock(scID skipchain.SkipBlockID, r *onet.Roster, ts []*Transaction) (*skipchain.SkipBlock, error) {
+	var sb *skipchain.SkipBlock
+	var c collection.Collection
+
+	if scID.IsNull() {
+		// For a genesis block, we create a throwaway collection.
+		log.Print("creating new collection")
+		c = collection.New(&collection.Data{}, &collection.Data{})
+
+		sb = skipchain.NewSkipBlock()
+		sb.Roster = r
+		sb.MaximumHeight = 10
+		sb.BaseHeight = 10
+	} else {
+		// For further blocks, we create a clone of the collection - this is
+		// TODO: not very memory-friendly - we need to use some kind of transactions.
+		log.Printf("Adding a block to %x", scID)
+		c = s.getCollection(scID).coll.Clone()
+
+		sbLatest, err := s.db().GetLatest(s.db().GetByID(scID))
+		if err != nil {
+			return nil, errors.New(
+				"Could not get latest block from the skipchain: " + err.Error())
+		}
+		sb = sbLatest.Copy()
+		if r != nil {
+			sb.Roster = r
+		}
 	}
 
-	mr := tmpColl.GetRoot()
+	for _, t := range ts {
+		sigBuf, err := network.Marshal(&t.Signature)
+		if err != nil {
+			return nil, errors.New("Couldn't marshal Signature: " + err.Error())
+		}
+		err = c.Add(t.Key, t.Value, sigBuf)
+		if err != nil {
+			return nil, errors.New("error while storing in collection: " + err.Error())
+		}
+	}
+	mr := c.GetRoot()
 	data := &Data{
 		MerkleRoot:   mr,
-		Transactions: []*Transaction{&req.Transaction},
+		Transactions: ts,
 		Timestamp:    time.Now().Unix(),
 	}
 
-	buf, err := network.Marshal(data)
+	var err error
+	sb.Data, err = network.Marshal(data)
 	if err != nil {
 		return nil, errors.New("Couldn't marshal data: " + err.Error())
 	}
 
-	var genesisBlock = skipchain.NewSkipBlock()
-	genesisBlock.Data = buf
-	genesisBlock.Roster = &req.Roster
-	genesisBlock.MaximumHeight = 1
-	genesisBlock.BaseHeight = 1
-
-	// TODO: Signature?
-	var ssb = skipchain.StoreSkipBlock{NewBlock: genesisBlock}
+	var ssb = skipchain.StoreSkipBlock{
+		NewBlock:          sb,
+		TargetSkipChainID: scID,
+	}
 	ssbReply, err := s.skService().StoreSkipBlock(&ssb)
 	if err != nil {
 		return nil, err
 	}
-	skID := ssbReply.Latest.SkipChainID()
-	gid := string(skID)
 
-	err = s.getCollection(skID).Store(req.Transaction.Key, req.Transaction.Value, sigBuf)
+	replies, err := s.propagateTransactions(sb.Roster, &updateCollection{sb.Hash}, s.propTimeout)
 	if err != nil {
-		return nil, errors.New(
-			"error while storing in collection: " + err.Error())
+		return nil, err
 	}
-	s.storage.Private[gid] = kp.Private
-	s.save()
-	return &CreateSkipchainResponse{
-		Version:   CurrentVersion,
-		Skipblock: ssbReply.Latest,
-	}, nil
+	if replies != len(sb.Roster.List) {
+		log.Lvl1(s.ServerIdentity(), "Only got", replies, "out of", len(sb.Roster.List))
+	}
+
+	return ssbReply.Latest, nil
+}
+
+func (s *Service) updateCollection(msg network.Message) {
+	uc, ok := msg.(*updateCollection)
+	if !ok {
+		return
+	}
+
+	sb, err := s.db().GetLatest(s.db().GetByID(uc.ID))
+	if err != nil {
+		log.Errorf("didn't find latest block for %x", uc.ID)
+		return
+	}
+	_, dataI, err := network.Unmarshal(sb.Data, cothority.Suite)
+	data, ok := dataI.(*Data)
+	if err != nil || !ok {
+		log.Errorf("couldn't unmarshal data")
+		return
+	}
+	// TODO: wrap this in a transaction
+	cdb := s.getCollection(sb.SkipChainID())
+	for _, t := range data.Transactions {
+		log.Printf("Storing %x/%x in %x", t.Key, t.Value, sb.SkipChainID())
+
+		err = cdb.Store(t)
+		if err != nil {
+			log.Error(
+				"error while storing in collection: " + err.Error())
+		}
+		return
+	}
+	if !bytes.Equal(cdb.RootHash(), data.MerkleRoot) {
+		log.Error("hash of collection doesn't correspond to root hash")
+	}
 }
 
 // SetKeyValue asks cisc to add a new key/value pair.
@@ -139,82 +203,16 @@ func (s *Service) SetKeyValue(req *SetKeyValue) (*SetKeyValueResponse, error) {
 	if req.Version != CurrentVersion {
 		return nil, errors.New("version mismatch")
 	}
-	gid := string(req.SkipchainID)
-	latest, err := s.db().GetLatest(s.db().GetByID(req.SkipchainID))
-	if err != nil {
-		return nil, errors.New(
-			"Could not get latest block from the skipchain: " + err.Error())
-	}
-	priv := s.storage.Private[gid]
-	if priv == nil {
-		return nil, errors.New("don't have this identity stored")
-	}
 
-	// Verify darc
-	// Note: The verify function needs the collection to be up to date.
-	// TODO: Make sure that is the case.
-	/*
-			log.Lvl1("Verifying signature")
-		    err := s.getCollection(req.SkipchainID).verify(&req.Transaction)
-		    if err != nil {
-				log.Lvl1("signature verification failed")
-		        return nil, err
-		    }
-			log.Lvl1("signature verification succeeded")
-	*/
-
-	coll := s.getCollection(req.SkipchainID)
-	if _, _, err := coll.GetValue(req.Transaction.Key); err == nil {
-		return nil, errors.New("cannot overwrite existing value")
-	}
-	sigBuf, err := network.Marshal(&req.Transaction.Signature)
-	if err != nil {
-		return nil, errors.New("Couldn't marshal Signature: " + err.Error())
-	}
-
-	// Store the pair in a copy of the collection to get the root hash.
-	// Once the block is accepted by the cothority, we store it in the real
-	// collectionBD.
-	var collCopy collection.Collection
-	collCopy = s.getCollection(req.SkipchainID).coll
-	collCopy.Add(req.Transaction.Key, req.Transaction.Value, sigBuf)
-	mr := collCopy.GetRoot()
-	data := &Data{
-		MerkleRoot:   mr,
-		Transactions: []*Transaction{&req.Transaction},
-		Timestamp:    time.Now().Unix(),
-	}
-
-	buf, err := network.Marshal(data)
-	if err != nil {
-		return nil, errors.New("Couldn't marshal data: " + err.Error())
-	}
-
-	newBlock := latest.Copy()
-	newBlock.Data = buf
-
-	var ssb = skipchain.StoreSkipBlock{
-		NewBlock:          newBlock,
-		TargetSkipChainID: req.SkipchainID,
-	} // TODO: Signature?
-	ssbReply, err := s.skService().StoreSkipBlock(&ssb)
+	sb, err := s.createNewBlock(req.SkipchainID, nil, []*Transaction{&req.Transaction})
 	if err != nil {
 		return nil, err
 	}
-
-	// Now we know the block is accepted, so we can apply the the Transaction
-	// to our collectionDB.
-	err = coll.Store(req.Transaction.Key, req.Transaction.Value, sigBuf)
-	if err != nil {
-		return nil, errors.New(
-			"error while storing in collection: " + err.Error())
-	}
-
-	hash := ssbReply.Latest.CalculateHash()
+	_, data, err := network.Unmarshal(sb.Data, cothority.Suite)
 	return &SetKeyValueResponse{
 		Version:     CurrentVersion,
-		Timestamp:   &data.Timestamp,
-		SkipblockID: &hash,
+		Timestamp:   &data.(*Data).Timestamp,
+		SkipblockID: &sb.Hash,
 	}, nil
 }
 
@@ -224,6 +222,7 @@ func (s *Service) GetProof(req *GetProof) (resp *GetProofResponse, err error) {
 	if req.Version != CurrentVersion {
 		return nil, errors.New("version mismatch")
 	}
+	log.Printf("Getting %x from sc %x - %p", req.Key, req.ID, s.getCollection(req.ID))
 	latest, err := s.db().GetLatest(s.db().GetByID(req.ID))
 	if err != nil {
 		return
@@ -243,6 +242,7 @@ func (s *Service) getCollection(id skipchain.SkipBlockID) *collectionDB {
 	idStr := fmt.Sprintf("%x", id)
 	col := s.collectionDB[idStr]
 	if col == nil {
+		log.Printf("%s creates new for %x", s.ServerIdentity(), id)
 		db, name := s.GetAdditionalBucket([]byte(idStr))
 		s.collectionDB[idStr] = newCollectionDB(db, name)
 		return s.collectionDB[idStr]
@@ -288,9 +288,6 @@ func (s *Service) tryLoad() error {
 	if s.storage == nil {
 		s.storage = &storage{}
 	}
-	if s.storage.Private == nil {
-		s.storage.Private = map[string]kyber.Scalar{}
-	}
 	s.collectionDB = map[string]*collectionDB{}
 
 	gas := &skipchain.GetAllSkipchains{}
@@ -323,5 +320,12 @@ func newService(c *onet.Context) (onet.Service, error) {
 		log.Error(err)
 		return nil, err
 	}
+
+	var err error
+	s.propagateTransactions, err = messaging.NewPropagationFunc(c, "OmniledgerPropagate", s.updateCollection, -1)
+	if err != nil {
+		return nil, err
+	}
+	s.propTimeout = 10 * time.Second
 	return s, nil
 }
