@@ -66,6 +66,8 @@ var waitQueueing = 5 * time.Second
 // storage is used to save our data locally.
 type storage struct {
 	sync.Mutex
+	// Dummy is there to satisfy new protobuf library.
+	Dummy int
 }
 
 type updateCollection struct {
