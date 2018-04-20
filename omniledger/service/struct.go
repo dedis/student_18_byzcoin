@@ -127,7 +127,7 @@ type Data struct {
 	// kv store
 	MerkleRoot []byte
 	// The transactions applied to the kv store with this block
-	Transactions []*Transaction
+	Transactions []Transaction
 	Timestamp    int64
 	Roster       *onet.Roster
 }

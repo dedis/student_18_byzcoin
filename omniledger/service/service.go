@@ -47,12 +47,21 @@ type Service struct {
 	propagateTransactions messaging.PropagationFunc
 	propTimeout           time.Duration
 
+	queuesMutex sync.Mutex
+	queues      map[string]*queue
+
 	storage *storage
+}
+
+type queue struct {
+	transactions []Transaction
 }
 
 // storageID reflects the data we're storing - we could store more
 // than one structure.
 const storageID = "main"
+
+var waitQueueing = 5 * time.Second
 
 // storage is used to save our data locally.
 type storage struct {
@@ -74,7 +83,7 @@ func (s *Service) CreateSkipchain(req *CreateSkipchain) (
 		return nil, errors.New("version mismatch")
 	}
 
-	sb, err := s.createNewBlock(nil, &req.Roster, []*Transaction{&req.Transaction})
+	sb, err := s.createNewBlock(nil, &req.Roster, []Transaction{req.Transaction})
 	if err != nil {
 		return nil, err
 	}
@@ -85,11 +94,71 @@ func (s *Service) CreateSkipchain(req *CreateSkipchain) (
 	}, nil
 }
 
+// SetKeyValue asks cisc to add a new key/value pair.
+func (s *Service) SetKeyValue(req *SetKeyValue) (*SetKeyValueResponse, error) {
+	if req.Version != CurrentVersion {
+		return nil, errors.New("version mismatch")
+	}
+
+	s.queuesMutex.Lock()
+	defer s.queuesMutex.Unlock()
+	ssid := string(req.SkipchainID)
+	if s.queues[ssid] == nil {
+		s.queues[ssid] = &queue{transactions: []Transaction{req.Transaction}}
+		go func() {
+			<-time.After(waitQueueing)
+			s.queuesMutex.Lock()
+			q := s.queues[ssid]
+			s.queues[ssid] = nil
+			s.queuesMutex.Unlock()
+			sb, err := s.db().GetLatest(s.db().GetByID(req.SkipchainID))
+			if err != nil {
+				log.Error(err)
+				return
+			}
+			log.Lvlf2("Creating block with transactions %+v", q.transactions)
+			_, err = s.createNewBlock(req.SkipchainID, sb.Roster, q.transactions)
+			if err != nil {
+				log.Error("couldn't create new block: " + err.Error())
+				return
+			}
+		}()
+	} else {
+		s.queues[ssid].transactions = append(s.queues[ssid].transactions, req.Transaction)
+	}
+	return &SetKeyValueResponse{
+		Version:     CurrentVersion,
+		QueueLength: len(s.queues[ssid].transactions),
+	}, nil
+}
+
+// GetProof searches for a key and returns a proof of the
+// presence or the absence of this key.
+func (s *Service) GetProof(req *GetProof) (resp *GetProofResponse, err error) {
+	if req.Version != CurrentVersion {
+		return nil, errors.New("version mismatch")
+	}
+	log.Lvlf2("Getting proof for key %x on sc %x", req.Key, req.ID)
+	latest, err := s.db().GetLatest(s.db().GetByID(req.ID))
+	if err != nil {
+		return
+	}
+	proof, err := NewProof(s.getCollection(req.ID), s.db(), latest.Hash, req.Key)
+	if err != nil {
+		return
+	}
+	resp = &GetProofResponse{
+		Version: CurrentVersion,
+		Proof:   *proof,
+	}
+	return
+}
+
 // createNewBlock creates a new block and proposes it to the
 // skipchain-service. Once the block has been created, we
 // inform all nodes to update their internal collections
 // to include the new transactions.
-func (s *Service) createNewBlock(scID skipchain.SkipBlockID, r *onet.Roster, ts []*Transaction) (*skipchain.SkipBlock, error) {
+func (s *Service) createNewBlock(scID skipchain.SkipBlockID, r *onet.Roster, ts []Transaction) (*skipchain.SkipBlock, error) {
 	var sb *skipchain.SkipBlock
 	var c collection.Collection
 
@@ -118,11 +187,7 @@ func (s *Service) createNewBlock(scID skipchain.SkipBlockID, r *onet.Roster, ts 
 	}
 
 	for _, t := range ts {
-		sigBuf, err := network.Marshal(&t.Signature)
-		if err != nil {
-			return nil, errors.New("Couldn't marshal Signature: " + err.Error())
-		}
-		err = c.Add(t.Key, t.Value, sigBuf)
+		err := c.Add(t.Key, t.Value, t.Kind)
 		if err != nil {
 			return nil, errors.New("error while storing in collection: " + err.Error())
 		}
@@ -160,6 +225,9 @@ func (s *Service) createNewBlock(scID skipchain.SkipBlockID, r *onet.Roster, ts 
 	return ssbReply.Latest, nil
 }
 
+// updateCollection is called once a skipblock has been stored.
+// It is called by the leader, and every node will add the
+// transactions in the block to its collection.
 func (s *Service) updateCollection(msg network.Message) {
 	uc, ok := msg.(*updateCollection)
 	if !ok {
@@ -178,60 +246,18 @@ func (s *Service) updateCollection(msg network.Message) {
 		return
 	}
 	// TODO: wrap this in a transaction
+	log.Lvlf2("Updating transactions for %x", sb.SkipChainID())
 	cdb := s.getCollection(sb.SkipChainID())
 	for _, t := range data.Transactions {
-
-		err = cdb.Store(t)
+		err = cdb.Store(&t)
 		if err != nil {
 			log.Error(
 				"error while storing in collection: " + err.Error())
 		}
-		return
 	}
 	if !bytes.Equal(cdb.RootHash(), data.MerkleRoot) {
 		log.Error("hash of collection doesn't correspond to root hash")
 	}
-}
-
-// SetKeyValue asks cisc to add a new key/value pair.
-func (s *Service) SetKeyValue(req *SetKeyValue) (*SetKeyValueResponse, error) {
-	// Check the input arguments
-	// TODO: verify the signature on the key/value pair
-	if req.Version != CurrentVersion {
-		return nil, errors.New("version mismatch")
-	}
-
-	sb, err := s.createNewBlock(req.SkipchainID, nil, []*Transaction{&req.Transaction})
-	if err != nil {
-		return nil, err
-	}
-	_, data, err := network.Unmarshal(sb.Data, cothority.Suite)
-	return &SetKeyValueResponse{
-		Version:     CurrentVersion,
-		Timestamp:   &data.(*Data).Timestamp,
-		SkipblockID: &sb.Hash,
-	}, nil
-}
-
-// GetProof searches for a key and returns a proof of the
-// presence or the absence of this key.
-func (s *Service) GetProof(req *GetProof) (resp *GetProofResponse, err error) {
-	if req.Version != CurrentVersion {
-		return nil, errors.New("version mismatch")
-	}
-	latest, err := s.db().GetLatest(s.db().GetByID(req.ID))
-	if err != nil {
-		return
-	}
-	proof, err := NewProof(s.getCollection(req.ID), s.db(), latest.Hash, req.Key)
-	if err != nil {
-		return
-	}
-	resp = &GetProofResponse{
-		Version: CurrentVersion,
-		Proof:   *proof,
-	}
-	return
 }
 
 func (s *Service) getCollection(id skipchain.SkipBlockID) *collectionDB {
@@ -306,6 +332,7 @@ func (s *Service) tryLoad() error {
 func newService(c *onet.Context) (onet.Service, error) {
 	s := &Service{
 		ServiceProcessor: onet.NewServiceProcessor(c),
+		queues:           make(map[string]*queue),
 	}
 	if err := s.RegisterHandlers(s.CreateSkipchain, s.SetKeyValue,
 		s.GetProof); err != nil {

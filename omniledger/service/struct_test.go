@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	"testing"
+	"time"
 
 	bolt "github.com/coreos/bbolt"
 	"github.com/stretchr/testify/require"
@@ -126,6 +127,7 @@ func TestService_Store(t *testing.T) {
 		})
 		require.Nil(t, err)
 	}
+	time.Sleep(4 * waitQueueing)
 
 	// Retrieve the keypairs
 	for key, value := range pairs {

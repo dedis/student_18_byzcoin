@@ -108,7 +108,7 @@ func set(c *cli.Context) error {
 	if err != nil {
 		return errors.New("couldn't set new key/value pair: " + err.Error())
 	}
-	log.Infof("Successfully set new key/value pair in block: %x", resp.SkipblockID)
+	log.Infof("Submitted new key/value - length of queue is: %d", resp.QueueLength)
 	return nil
 }
 

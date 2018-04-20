@@ -2,6 +2,7 @@ package service
 
 import (
 	"testing"
+	"time"
 
 	"github.com/dedis/cothority/ocs/darc"
 	"github.com/dedis/onet/network"
@@ -16,6 +17,7 @@ import (
 var tSuite = suites.MustFind("Ed25519")
 
 func TestMain(m *testing.M) {
+	waitQueueing = 100 * time.Millisecond
 	log.MainTest(m)
 }
 
@@ -62,8 +64,44 @@ func TestService_AddKeyValue(t *testing.T) {
 	require.Nil(t, err)
 	require.NotNil(t, akvresp)
 	require.Equal(t, CurrentVersion, akvresp.Version)
-	require.NotNil(t, akvresp.Timestamp)
-	require.NotNil(t, akvresp.SkipblockID)
+	require.Equal(t, 1, akvresp.QueueLength)
+
+	key2 := []byte("second")
+	value2 := []byte("value2")
+	akvresp, err = s.service.SetKeyValue(&SetKeyValue{
+		Version:     CurrentVersion,
+		SkipchainID: s.sb.SkipChainID(),
+		Transaction: Transaction{
+			Key:   key2,
+			Kind:  []byte("testKind"),
+			Value: value2,
+		},
+	})
+	require.Nil(t, err)
+	require.NotNil(t, akvresp)
+	require.Equal(t, CurrentVersion, akvresp.Version)
+	require.Equal(t, 2, akvresp.QueueLength)
+	time.Sleep(4 * waitQueueing)
+
+	pr, err := s.service.GetProof(&GetProof{
+		Version: CurrentVersion,
+		ID:      s.sb.SkipChainID(),
+		Key:     s.key,
+	})
+	require.Nil(t, err)
+	require.Equal(t, CurrentVersion, pr.Version)
+	require.Nil(t, pr.Proof.Verify(s.sb))
+	require.True(t, pr.Proof.InclusionProof.Match())
+
+	pr, err = s.service.GetProof(&GetProof{
+		Version: CurrentVersion,
+		ID:      s.sb.SkipChainID(),
+		Key:     key2,
+	})
+	require.Nil(t, err)
+	require.Equal(t, CurrentVersion, pr.Version)
+	require.Nil(t, pr.Proof.Verify(s.sb))
+	require.True(t, pr.Proof.InclusionProof.Match())
 }
 
 func TestService_GetProof(t *testing.T) {
@@ -141,6 +179,7 @@ func newSer(t *testing.T, step int) *ser {
 				},
 			})
 			require.Nil(t, err)
+			time.Sleep(4 * waitQueueing)
 		}
 	}
 	return s
