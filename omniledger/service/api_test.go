@@ -25,10 +25,17 @@ func TestClient_GetProof(t *testing.T) {
 			Value: value,
 		})
 	require.Nil(t, err)
-	time.Sleep(4 * waitQueueing)
 
-	p, err := c.GetProof(roster, csr.Skipblock.SkipChainID(), key)
-	require.Nil(t, err)
+	var p *GetProofResponse
+	for {
+		time.Sleep(4 * waitQueueing)
+		var err error
+		p, err = c.GetProof(roster, csr.Skipblock.SkipChainID(), key)
+		require.Nil(t, err)
+		if p.Proof.InclusionProof.Match() {
+			break
+		}
+	}
 	require.Nil(t, p.Proof.Verify(csr.Skipblock))
 	k, vs, err := p.Proof.KeyValue()
 	require.Nil(t, err)

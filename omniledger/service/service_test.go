@@ -81,19 +81,23 @@ func TestService_AddKeyValue(t *testing.T) {
 	require.NotNil(t, akvresp)
 	require.Equal(t, CurrentVersion, akvresp.Version)
 	require.Equal(t, 2, akvresp.QueueLength)
-	time.Sleep(4 * waitQueueing)
+
+	for {
+		time.Sleep(2 * waitQueueing)
+		pr, err := s.service.GetProof(&GetProof{
+			Version: CurrentVersion,
+			ID:      s.sb.SkipChainID(),
+			Key:     s.key,
+		})
+		require.Nil(t, err)
+		require.Equal(t, CurrentVersion, pr.Version)
+		require.Nil(t, pr.Proof.Verify(s.sb))
+		if pr.Proof.InclusionProof.Match() {
+			break
+		}
+	}
 
 	pr, err := s.service.GetProof(&GetProof{
-		Version: CurrentVersion,
-		ID:      s.sb.SkipChainID(),
-		Key:     s.key,
-	})
-	require.Nil(t, err)
-	require.Equal(t, CurrentVersion, pr.Version)
-	require.Nil(t, pr.Proof.Verify(s.sb))
-	require.True(t, pr.Proof.InclusionProof.Match())
-
-	pr, err = s.service.GetProof(&GetProof{
 		Version: CurrentVersion,
 		ID:      s.sb.SkipChainID(),
 		Key:     key2,
@@ -108,12 +112,20 @@ func TestService_GetProof(t *testing.T) {
 	s := newSer(t, 2)
 	defer s.local.CloseAll()
 
-	rep, err := s.service.GetProof(&GetProof{
-		Version: CurrentVersion,
-		ID:      s.sb.SkipChainID(),
-		Key:     s.key,
-	})
-	require.Nil(t, err)
+	var rep *GetProofResponse
+	for {
+		time.Sleep(2 * waitQueueing)
+		var err error
+		rep, err = s.service.GetProof(&GetProof{
+			Version: CurrentVersion,
+			ID:      s.sb.SkipChainID(),
+			Key:     s.key,
+		})
+		require.Nil(t, err)
+		if rep.Proof.InclusionProof.Match() {
+			break
+		}
+	}
 	key, values, err := rep.Proof.KeyValue()
 	require.Nil(t, err)
 	require.Nil(t, rep.Proof.Verify(s.sb))
