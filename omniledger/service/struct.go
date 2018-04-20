@@ -3,7 +3,6 @@ package service
 import (
 	"errors"
 	"fmt"
-	"log"
 
 	bolt "github.com/coreos/bbolt"
 	"github.com/dedis/onet"
@@ -59,7 +58,6 @@ func (c *collectionDB) loadAll() {
 }
 
 func (c *collectionDB) Store(t *Transaction) error {
-	log.Printf("Storing key/value: %x/%x in %p", t.Key, t.Value, c)
 	c.coll.Add(t.Key, t.Value, t.Kind)
 	err := c.db.Update(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket([]byte(c.bucketName))
@@ -78,7 +76,6 @@ func (c *collectionDB) Store(t *Transaction) error {
 }
 
 func (c *collectionDB) GetValueKind(key []byte) (value, kind []byte, err error) {
-	log.Printf("Getting key %x from %p", key, c)
 	proof, err := c.coll.Get(key).Record()
 	if err != nil {
 		return

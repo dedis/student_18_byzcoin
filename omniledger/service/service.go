@@ -95,7 +95,6 @@ func (s *Service) createNewBlock(scID skipchain.SkipBlockID, r *onet.Roster, ts 
 
 	if scID.IsNull() {
 		// For a genesis block, we create a throwaway collection.
-		log.Print("creating new collection")
 		c = collection.New(&collection.Data{}, &collection.Data{})
 
 		sb = skipchain.NewSkipBlock()
@@ -105,7 +104,6 @@ func (s *Service) createNewBlock(scID skipchain.SkipBlockID, r *onet.Roster, ts 
 	} else {
 		// For further blocks, we create a clone of the collection - this is
 		// TODO: not very memory-friendly - we need to use some kind of transactions.
-		log.Printf("Adding a block to %x", scID)
 		c = s.getCollection(scID).coll.Clone()
 
 		sbLatest, err := s.db().GetLatest(s.db().GetByID(scID))
@@ -182,7 +180,6 @@ func (s *Service) updateCollection(msg network.Message) {
 	// TODO: wrap this in a transaction
 	cdb := s.getCollection(sb.SkipChainID())
 	for _, t := range data.Transactions {
-		log.Printf("Storing %x/%x in %x", t.Key, t.Value, sb.SkipChainID())
 
 		err = cdb.Store(t)
 		if err != nil {
@@ -222,7 +219,6 @@ func (s *Service) GetProof(req *GetProof) (resp *GetProofResponse, err error) {
 	if req.Version != CurrentVersion {
 		return nil, errors.New("version mismatch")
 	}
-	log.Printf("Getting %x from sc %x - %p", req.Key, req.ID, s.getCollection(req.ID))
 	latest, err := s.db().GetLatest(s.db().GetByID(req.ID))
 	if err != nil {
 		return
@@ -242,7 +238,6 @@ func (s *Service) getCollection(id skipchain.SkipBlockID) *collectionDB {
 	idStr := fmt.Sprintf("%x", id)
 	col := s.collectionDB[idStr]
 	if col == nil {
-		log.Printf("%s creates new for %x", s.ServerIdentity(), id)
 		db, name := s.GetAdditionalBucket([]byte(idStr))
 		s.collectionDB[idStr] = newCollectionDB(db, name)
 		return s.collectionDB[idStr]
