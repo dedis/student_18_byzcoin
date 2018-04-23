@@ -65,16 +65,15 @@ func (c *collectionDB) tryHash(ts []Transaction) (mr []byte, rerr error) {
 		if err != nil {
 			rerr = err
 			return
-		} else {
-			// remove the pair after we got the merkle root.
-			defer func(k []byte) {
-				err = c.coll.Remove(k)
-				if err != nil {
-					rerr = err
-					mr = nil
-				}
-			}(t.Key)
 		}
+		// remove the pair after we got the merkle root.
+		defer func(k []byte) {
+			err = c.coll.Remove(k)
+			if err != nil {
+				rerr = err
+				mr = nil
+			}
+		}(t.Key)
 	}
 	mr = c.coll.GetRoot()
 	return
