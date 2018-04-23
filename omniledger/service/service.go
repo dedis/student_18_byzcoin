@@ -163,6 +163,7 @@ func (s *Service) GetProof(req *GetProof) (resp *GetProofResponse, err error) {
 func (s *Service) createNewBlock(scID skipchain.SkipBlockID, r *onet.Roster, ts []Transaction) (*skipchain.SkipBlock, error) {
 	var sb *skipchain.SkipBlock
 	var c collection.Collection
+	var mr []byte
 
 	if scID.IsNull() {
 		// For a genesis block, we create a throwaway collection.
@@ -172,11 +173,14 @@ func (s *Service) createNewBlock(scID skipchain.SkipBlockID, r *onet.Roster, ts 
 		sb.Roster = r
 		sb.MaximumHeight = 10
 		sb.BaseHeight = 10
+		for _, t := range ts {
+			err := c.Add(t.Key, t.Value, t.Kind)
+			if err != nil {
+				return nil, errors.New("error while storing in collection: " + err.Error())
+			}
+		}
+		mr = c.GetRoot()
 	} else {
-		// For further blocks, we create a clone of the collection - this is
-		// TODO: not very memory-friendly - we need to use some kind of transactions.
-		c = s.getCollection(scID).coll.Clone()
-
 		sbLatest, err := s.db().GetLatest(s.db().GetByID(scID))
 		if err != nil {
 			return nil, errors.New(
@@ -186,15 +190,12 @@ func (s *Service) createNewBlock(scID skipchain.SkipBlockID, r *onet.Roster, ts 
 		if r != nil {
 			sb.Roster = r
 		}
-	}
-
-	for _, t := range ts {
-		err := c.Add(t.Key, t.Value, t.Kind)
+		mr, err = s.getCollection(scID).tryHash(ts)
 		if err != nil {
-			return nil, errors.New("error while storing in collection: " + err.Error())
+			return nil, errors.New("error while getting merkle root from collection: " + err.Error())
 		}
 	}
-	mr := c.GetRoot()
+
 	data := &Data{
 		MerkleRoot:   mr,
 		Transactions: ts,
