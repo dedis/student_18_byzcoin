@@ -57,6 +57,28 @@ func (c *collectionDB) loadAll() {
 	})
 }
 
+// tryHash returns the merkle root of the collection as if the key value pairs
+// in the transactions had been added, without actually adding it.
+func (c *collectionDB) tryHash(ts []Transaction) (mr []byte, rerr error) {
+	for _, t := range ts {
+		err := c.coll.Add(t.Key, t.Value, t.Kind)
+		if err != nil {
+			rerr = err
+			return
+		}
+		// remove the pair after we got the merkle root.
+		defer func(k []byte) {
+			err = c.coll.Remove(k)
+			if err != nil {
+				rerr = err
+				mr = nil
+			}
+		}(t.Key)
+	}
+	mr = c.coll.GetRoot()
+	return
+}
+
 func (c *collectionDB) Store(t *Transaction) error {
 	c.coll.Add(t.Key, t.Value, t.Kind)
 	err := c.db.Update(func(tx *bolt.Tx) error {
