@@ -463,7 +463,7 @@ func newService(c *onet.Context) (onet.Service, error) {
 
 // We use the omniledger as a receiver (as is done in the identity service),
 // so we can access e.g. the collectionDBs of the service.
-func (s *Service) verifySkipBlock(newID []byte, newSB *skipchain.SkipBlock) (validSB bool) {
+func (s *Service) verifySkipBlock(newID []byte, newSB *skipchain.SkipBlock) bool {
 	validSB = true
 	_, dataI, err := network.Unmarshal(newSB.Data, cothority.Suite)
 	data, ok := dataI.(*Data)
@@ -474,12 +474,16 @@ func (s *Service) verifySkipBlock(newID []byte, newSB *skipchain.SkipBlock) (val
 	txs := data.Transactions
 	cdb := s.getCollection(newSB.Hash)
 	for _, tx := range txs {
-		f, ok := s.verifiers[string(tx.Kind)]
-		if ok {
-			validSB = validSB && f(cdb, &tx)
+		f, exists := s.verifiers[string(tx.Kind)]
+		if !exists {
+			continue
+		}
+		validSB = validSB && f(cdb, &tx)
+		if tx.Valid != f(cdb, &tx) {
+			return false
 		}
 	}
-	return
+	return true
 }
 
 // RegisterVerification stores the verification in a map and will
