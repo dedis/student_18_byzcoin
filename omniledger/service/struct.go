@@ -158,6 +158,9 @@ type Transaction struct {
 	Key    []byte
 	Kind   []byte
 	Value  []byte
+	// The Valid flag is set IFF the corresponding verifier considers the
+	// transaction valid
+	Valid bool
 	// The signature is performed on the concatenation of the []bytes
 	Signature darc.Signature
 }
