@@ -231,10 +231,12 @@ func (s *Service) createNewBlock(scID skipchain.SkipBlockID, r *onet.Roster, ts 
 		if r != nil {
 			sb.Roster = r
 		}
-		mr, err = s.getCollection(scID).tryHash(ts)
+		cdb := s.getCollection(scID)
+		mr, err = cdb.tryHash(ts)
 		if err != nil {
 			return nil, errors.New("error while getting merkle root from collection: " + err.Error())
 		}
+		s.validateTransactions(cdb, ts)
 	}
 
 	data := &Data{
