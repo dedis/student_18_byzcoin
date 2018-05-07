@@ -478,12 +478,22 @@ func (s *Service) verifySkipBlock(newID []byte, newSB *skipchain.SkipBlock) bool
 		if !exists {
 			continue
 		}
-		validSB = validSB && f(cdb, &tx)
 		if tx.Valid != f(cdb, &tx) {
 			return false
 		}
 	}
 	return true
+}
+
+// validateTransactions set the valid-flag of the transaction according to the
+// registered OmniledgerVerifiers.
+func (s *Service) validateTransactions(cdb *collectionDB, txs []Transaction) {
+	for _, tx := range txs {
+		f, exists := s.verifiers[string(tx.Kind)]
+		if exists {
+			tx.Valid = f(cdb, &tx)
+		}
+	}
 }
 
 // RegisterVerification stores the verification in a map and will
