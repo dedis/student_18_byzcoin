@@ -173,10 +173,14 @@ func (s *Service) GetProof(req *GetProof) (resp *GetProofResponse, err error) {
 	log.Lvlf2("%s: Getting proof for key %x on sc %x", s.ServerIdentity(), req.Key, req.ID)
 	latest, err := s.db().GetLatest(s.db().GetByID(req.ID))
 	if err != nil {
+		log.Error(
+			"error while getting latest skipblock: " + err.Error())
 		return
 	}
 	proof, err := NewProof(s.getCollection(req.ID), s.db(), latest.Hash, req.Key)
 	if err != nil {
+		log.Error(
+			"error while creating proof: " + err.Error())
 		return
 	}
 	resp = &GetProofResponse{
@@ -213,6 +217,9 @@ func (s *Service) createNewBlock(scID skipchain.SkipBlockID, r *onet.Roster, ts 
 		// We have to register the verification functions in the genesis block
 		sb.VerifierIDs = []skipchain.VerifierID{skipchain.VerifyBase, verifyOmniledger}
 		for _, t := range ts {
+			// For the moment, we assume that in the genesis block, all
+			// transactions are valid.
+			t.Valid = true
 			log.Printf("Adding transaction %+v", t)
 			err := c.Add(t.Key, t.Value, t.Kind)
 			if err != nil {
@@ -255,6 +262,7 @@ func (s *Service) createNewBlock(scID skipchain.SkipBlockID, r *onet.Roster, ts 
 		NewBlock:          sb,
 		TargetSkipChainID: scID,
 	}
+	log.Lvl2("Storing skipblock with transactions %+v", ts)
 	ssbReply, err := s.skService().StoreSkipBlock(&ssb)
 	if err != nil {
 		return nil, err
@@ -299,6 +307,9 @@ func (s *Service) updateCollection(msg network.Message) {
 	log.Lvlf2("%s: Updating transactions for %x", s.ServerIdentity(), sb.SkipChainID())
 	cdb := s.getCollection(sb.SkipChainID())
 	for _, t := range data.Transactions {
+		if !t.Valid {
+			continue
+		}
 		log.Lvlf2("Storing transaction key/kind/value: %x / %x / %x", t.Key, t.Kind, t.Value)
 		err = cdb.Store(&t)
 		if err != nil {
@@ -371,7 +382,7 @@ func (s *Service) createQueueWorker(scID skipchain.SkipBlockID) (chan Transactio
 						// A better solution would be to mark them invalid and have
 						// the skipchain ignore them during the verification.
 						// TODO: Above.
-						ts = []Transaction{}
+						// ts = []Transaction{}
 						to = time.After(waitQueueing)
 						continue
 					}
@@ -489,10 +500,12 @@ func (s *Service) verifySkipBlock(newID []byte, newSB *skipchain.SkipBlock) bool
 // validateTransactions set the valid-flag of the transaction according to the
 // registered OmniledgerVerifiers.
 func (s *Service) validateTransactions(cdb *collectionDB, txs []Transaction) {
-	for _, tx := range txs {
-		f, exists := s.verifiers[string(tx.Kind)]
+	for i := range txs {
+		f, exists := s.verifiers[string(txs[i].Kind)]
 		if exists {
-			tx.Valid = f(cdb, &tx)
+			txs[i].Valid = f(cdb, &txs[i])
+		} else {
+			txs[i].Valid = true
 		}
 	}
 }

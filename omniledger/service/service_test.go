@@ -185,16 +185,6 @@ func TestService_DummyVerification(t *testing.T) {
 	require.NotNil(t, akvresp)
 	require.Equal(t, CurrentVersion, akvresp.Version)
 
-	time.Sleep(2 * waitQueueing)
-	pr, err := s.service.GetProof(&GetProof{
-		Version: CurrentVersion,
-		ID:      s.sb.SkipChainID(),
-		Key:     key1,
-	})
-	require.Nil(t, err)
-	match := pr.Proof.InclusionProof.Match()
-	require.False(t, match)
-
 	key2 := []byte("b")
 	value2 := []byte("b")
 	akvresp, err = s.service.SetKeyValue(&SetKeyValue{
@@ -212,6 +202,16 @@ func TestService_DummyVerification(t *testing.T) {
 	require.Equal(t, CurrentVersion, akvresp.Version)
 
 	time.Sleep(4 * waitQueueing)
+
+	pr, err := s.service.GetProof(&GetProof{
+		Version: CurrentVersion,
+		ID:      s.sb.SkipChainID(),
+		Key:     key1,
+	})
+	require.Nil(t, err)
+	match := pr.Proof.InclusionProof.Match()
+	require.False(t, match)
+
 	pr, err = s.service.GetProof(&GetProof{
 		Version: CurrentVersion,
 		ID:      s.sb.SkipChainID(),
