@@ -201,7 +201,7 @@ func TestService_DummyVerification(t *testing.T) {
 	require.NotNil(t, akvresp)
 	require.Equal(t, CurrentVersion, akvresp.Version)
 
-	time.Sleep(4 * waitQueueing)
+	time.Sleep(8 * waitQueueing)
 
 	pr, err := s.service.GetProof(&GetProof{
 		Version: CurrentVersion,
@@ -221,7 +221,6 @@ func TestService_DummyVerification(t *testing.T) {
 	match = pr.Proof.InclusionProof.Match()
 	require.True(t, match)
 
-	time.Sleep(4 * waitQueueing)
 }
 
 func verifyDummyKind(cdb *collectionDB, tx *Transaction) bool {
