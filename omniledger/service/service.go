@@ -491,7 +491,7 @@ func (s *Service) verifySkipBlock(newID []byte, newSB *skipchain.SkipBlock) bool
 	return true
 }
 
-// validateTransactions set the valid-flag of the transaction according to the
+// validateTransactions sets the valid-flag of the transaction according to the
 // registered OmniledgerVerifiers.
 func (s *Service) validateTransactions(cdb *collectionDB, txs []Transaction) {
 	for i := range txs {
