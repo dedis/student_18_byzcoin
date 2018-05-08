@@ -173,14 +173,10 @@ func (s *Service) GetProof(req *GetProof) (resp *GetProofResponse, err error) {
 	log.Lvlf2("%s: Getting proof for key %x on sc %x", s.ServerIdentity(), req.Key, req.ID)
 	latest, err := s.db().GetLatest(s.db().GetByID(req.ID))
 	if err != nil {
-		log.Error(
-			"error while getting latest skipblock: " + err.Error())
 		return
 	}
 	proof, err := NewProof(s.getCollection(req.ID), s.db(), latest.Hash, req.Key)
 	if err != nil {
-		log.Error(
-			"error while creating proof: " + err.Error())
 		return
 	}
 	resp = &GetProofResponse{
