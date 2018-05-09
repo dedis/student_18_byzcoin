@@ -65,7 +65,7 @@ func TestService_AddKeyValue(t *testing.T) {
 		SkipchainID: s.sb.SkipChainID(),
 		Transaction: Transaction{
 			Key:   s.key,
-			Kind:  []byte("testKind"),
+			Kind:  []byte("dummy"),
 			Value: s.value,
 		},
 	})
@@ -80,7 +80,7 @@ func TestService_AddKeyValue(t *testing.T) {
 		SkipchainID: s.sb.SkipChainID(),
 		Transaction: Transaction{
 			Key:   key2,
-			Kind:  []byte("testKind"),
+			Kind:  []byte("dummy"),
 			Value: value2,
 		},
 	})
@@ -163,7 +163,9 @@ func TestService_DummyVerification(t *testing.T) {
 	defer s.local.CloseAll()
 	defer closeQueues(s.local)
 
-	RegisterVerification(s.hosts[0], "dummy", verifyDummyKind)
+	for i := range s.hosts {
+		RegisterVerification(s.hosts[i], "invalid", verifyInvalidKind)
+	}
 	akvresp, err := s.service.SetKeyValue(&SetKeyValue{
 		Version: 0,
 	})
@@ -176,7 +178,7 @@ func TestService_DummyVerification(t *testing.T) {
 		SkipchainID: s.sb.SkipChainID(),
 		Transaction: Transaction{
 			Key:    key1,
-			Kind:   []byte("dummy"),
+			Kind:   []byte("invalid"),
 			Value:  value1,
 			Action: Remove,
 		},
@@ -192,7 +194,7 @@ func TestService_DummyVerification(t *testing.T) {
 		SkipchainID: s.sb.SkipChainID(),
 		Transaction: Transaction{
 			Key:    key2,
-			Kind:   []byte("other"),
+			Kind:   []byte("dummy"),
 			Value:  value2,
 			Action: Remove,
 		},
@@ -223,18 +225,8 @@ func TestService_DummyVerification(t *testing.T) {
 
 }
 
-func verifyDummyKind(cdb *collectionDB, tx *Transaction) bool {
-	switch a := tx.Action; a {
-	case Create:
-		return true
-	case Update:
-		return true
-	// removing and unknown actions are forbidden
-	case Remove:
-		return false
-	default:
-		return false
-	}
+func verifyInvalidKind(cdb *collectionDB, tx *Transaction) bool {
+	return false
 }
 
 type ser struct {
@@ -271,7 +263,7 @@ func newSer(t *testing.T, step int) *ser {
 				SkipchainID: s.sb.SkipChainID(),
 				Transaction: Transaction{
 					Key:   s.key,
-					Kind:  []byte("testKind"),
+					Kind:  []byte("dummy"),
 					Value: s.value,
 				},
 			})

@@ -27,6 +27,7 @@ import (
 // TODO move to test
 var omniledgerID onet.ServiceID
 var verifyOmniledger = skipchain.VerifierID(uuid.NewV5(uuid.NamespaceURL, "Omniledger"))
+var dummyKind = "dummy"
 
 func init() {
 	var err error
@@ -368,7 +369,6 @@ func (s *Service) createQueueWorker(scID skipchain.SkipBlockID) (chan Transactio
 					if err != nil {
 						panic("DB is in bad state and cannot find skipchain anymore: " + err.Error())
 					}
-					log.Lvlf2("Creating block with transactions %+v", ts)
 					_, err = s.createNewBlock(scID, sb.Roster, ts)
 					if err != nil {
 						log.Error("couldn't create new block: " + err.Error())
@@ -460,6 +460,10 @@ func newService(c *onet.Context) (onet.Service, error) {
 	}
 
 	s.verifiers = make(map[string]OmniledgerVerifier)
+	// For testing
+	s.verifiers[dummyKind] = func(cdb *collectionDB, tx *Transaction) bool {
+		return true
+	}
 	skipchain.RegisterVerification(c, verifyOmniledger, s.verifySkipBlock)
 	return s, nil
 }
@@ -478,8 +482,10 @@ func (s *Service) verifySkipBlock(newID []byte, newSB *skipchain.SkipBlock) bool
 	for _, tx := range txs {
 		f, exists := s.verifiers[string(tx.Kind)]
 		if !exists || tx.Valid != f(cdb, &tx) {
+			log.Errorf("disagree on %+v, function exists: %t", tx, exists)
 			return false
 		}
+		log.Lvlf2("agree on %+v, function exists: %t", tx, exists)
 	}
 	return true
 }
