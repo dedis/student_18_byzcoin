@@ -1,12 +1,16 @@
 package service
 
 import (
+	"bytes"
+	"crypto/sha256"
 	"errors"
 	"fmt"
+	"sort"
 
 	bolt "github.com/coreos/bbolt"
 	"github.com/dedis/student_18_omniledger/omniledger/collection"
 	"github.com/dedis/student_18_omniledger/omniledger/darc"
+	"gopkg.in/dedis/cothority.v2"
 	"gopkg.in/dedis/onet.v2"
 	"gopkg.in/dedis/onet.v2/network"
 )
@@ -163,6 +167,83 @@ type Transaction struct {
 	Valid bool
 	// The signature is performed on the concatenation of the []bytes
 	Signature darc.Signature
+}
+
+// sortTransactions needs to marshal transactions, if it fails to do so,
+// it returns an error and leaves the slice unchange.
+func sortTransactions(ts []Transaction) error {
+	bs := make([][]byte, len(ts))
+	sortedTs := make([]*Transaction, len(ts))
+	var err error
+	var ok bool
+	for i := range ts {
+		bs[i], err = network.Marshal(&ts[i])
+		if err != nil {
+			return err
+		}
+	}
+	salt := xorTransactions(bs)
+	sortWithSalt(bs, salt)
+	for i := range bs {
+		_, tmp, err := network.Unmarshal(bs[i], cothority.Suite)
+		if err != nil {
+			return err
+		}
+		sortedTs[i], ok = tmp.(*Transaction)
+		if !ok {
+			return errors.New("Data of wrong type")
+		}
+	}
+	for i := range sortedTs {
+		ts[i] = *sortedTs[i]
+	}
+	return nil
+}
+
+func sortWithSalt(ts [][]byte, salt []byte) {
+	less := func(i, j int) bool {
+		h := sha256.New()
+		h.Write(append(salt, ts[i]...))
+		h1 := h.Sum(nil)
+		h.Reset()
+		h.Write(append(salt, ts[j]...))
+		h2 := h.Sum(nil)
+		h.Reset()
+		result := bytes.Compare(h1, h2) == -1
+		return result
+	}
+	sort.Slice(ts, less)
+}
+
+// xorTransactions returns the XOR of the hash of all the signatures
+func xorTransactions(ts [][]byte) []byte {
+	h := sha256.New()
+	h.Write(nil)
+	hn := h.Sum(nil)
+	h.Reset()
+	result := make([]byte, len(hn))
+	for _, t := range ts {
+		h.Write(t)
+		hs := h.Sum(nil)
+		h.Reset()
+		safeXORBytes(result, result, hs)
+	}
+	return result
+}
+
+// adapted from golang.org/src/crypto/cipher/xor.go
+func safeXORBytes(dst, a, b []byte) int {
+	n := len(a)
+	if len(b) < n {
+		n = len(b)
+	}
+	if len(dst) < n {
+		n = len(dst)
+	}
+	for i := 0; i < n; i++ {
+		dst[i] = a[i] ^ b[i]
+	}
+	return n
 }
 
 // Data is the data passed to the Skipchain

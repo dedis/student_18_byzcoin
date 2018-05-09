@@ -203,6 +203,7 @@ func (s *Service) createNewBlock(scID skipchain.SkipBlockID, r *onet.Roster, ts 
 	var sb *skipchain.SkipBlock
 	var mr []byte
 
+	sortTransactions(ts)
 	if scID.IsNull() {
 		// For a genesis block, we create a throwaway collection.
 		c := collection.New(&collection.Data{}, &collection.Data{})
