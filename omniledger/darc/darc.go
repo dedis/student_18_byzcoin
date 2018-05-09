@@ -269,6 +269,10 @@ func (d *Darc) EvolveFrom(path []*Darc) error {
 // the darc service (for example) to execute the evolution. This function
 // assumes that the receiver has all the correct attributes to form a valid
 // evolution.
+// TODO we need to change this function. We now consider the Msg part of the
+// request as a hash. So, if a service wants to make a evolution request, it'd
+// create a message that contains the new darc and the request, where the
+// request message is the hash of the new darc.
 func (d *Darc) MakeEvolveRequest(prevSigners ...*Signer) (*Request, error) {
 	if d == nil {
 		return nil, errors.New("darc is nil")
@@ -393,25 +397,24 @@ func (d *Darc) findPath(getDarc func(string) *Darc) error {
 	return nil
 }
 
-// CheckRequest checks the given request and returns an error if it cannot be
-// accepted. The caller is responsible for calling this function on the latest
-// darc.
-func (d Darc) CheckRequest(r *Request) error {
-	return d.CheckRequestWithCB(r, func(s string) *Darc {
-		return nil
-	})
-}
+// VerifyWithCB checks the request with the given darc using a callback which
+// looks-up missing darcs. The function returns an error if the request cannot
+// be accepted. The caller is responsible for providing the latest darc in the
+// argument.
+func (r *Request) VerifyWithCB(d *Darc, getDarc func(string) *Darc) error {
+	if len(r.Signatures) == 0 {
+		return errors.New("no signatures - nothing to verify")
+	}
+	if len(r.Signatures) != len(r.Identities) {
+		return fmt.Errorf("signatures and identities have unequal length - %d != %d",
+			len(r.Signatures), len(r.Identities))
+	}
 
-// CheckRequestWithCB checks the given request using a callback which looks-up
-// missing darcs. The function returns an error if the request cannot be
-// accepted. The caller is responsible for calling this function on the latest
-// darc.
-func (d Darc) CheckRequestWithCB(r *Request, getDarc func(string) *Darc) error {
 	if !d.GetBaseID().Equal(r.BaseID) {
 		return fmt.Errorf("base id mismatch")
 	}
 	if !d.Rules.Contains(r.Action) {
-		return fmt.Errorf("%v does not exist", r.Action)
+		return fmt.Errorf("action '%v' does not exist", r.Action)
 	}
 	var digest []byte
 	var err error
@@ -438,6 +441,15 @@ func (d Darc) CheckRequestWithCB(r *Request, getDarc func(string) *Darc) error {
 		return err
 	}
 	return nil
+}
+
+// Verify checks the request with the given darc and returns an error if it
+// cannot be accepted. The caller is responsible for providing  the latest
+// darc in the argument.
+func (r *Request) Verify(d *Darc) error {
+	return r.VerifyWithCB(d, func(s string) *Darc {
+		return nil
+	})
 }
 
 // String returns a human-readable string representation of the darc.
@@ -917,8 +929,24 @@ func (r *Request) MsgToDarc(path []*Darc) (*Darc, error) {
 	return d, nil
 }
 
-// NewRequest creates a new request which can be verified by a Darc.
-func NewRequest(baseID ID, action Action, msg []byte, signers ...*Signer) (*Request, error) {
+// InitRequest initialises a request, the caller must provide all the fields of
+// the request. There is no guarantee that this request is valid, please see
+// InitAndSignRequest is a valid request needs to be created.
+func InitRequest(baseID ID, action Action, msg []byte, ids []*Identity, sigs [][]byte) Request {
+	inner := innerRequest{
+		BaseID:     baseID,
+		Action:     action,
+		Msg:        msg,
+		Identities: ids,
+	}
+	return Request{
+		inner,
+		sigs,
+	}
+}
+
+// InitAndSignRequest creates a new request which can be verified by a Darc.
+func InitAndSignRequest(baseID ID, action Action, msg []byte, signers ...*Signer) (*Request, error) {
 	if len(signers) == 0 {
 		return nil, errors.New("there are no signers")
 	}
