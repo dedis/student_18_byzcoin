@@ -477,10 +477,7 @@ func (s *Service) verifySkipBlock(newID []byte, newSB *skipchain.SkipBlock) bool
 	cdb := s.getCollection(newSB.Hash)
 	for _, tx := range txs {
 		f, exists := s.verifiers[string(tx.Kind)]
-		if !exists {
-			continue
-		}
-		if tx.Valid != f(cdb, &tx) {
+		if !exists || tx.Valid != f(cdb, &tx) {
 			return false
 		}
 	}
@@ -492,11 +489,13 @@ func (s *Service) verifySkipBlock(newID []byte, newSB *skipchain.SkipBlock) bool
 func (s *Service) validateTransactions(cdb *collectionDB, txs []Transaction) {
 	for i := range txs {
 		f, exists := s.verifiers[string(txs[i].Kind)]
-		if exists {
-			txs[i].Valid = f(cdb, &txs[i])
-		} else {
-			txs[i].Valid = true
+		// If the leader does not have a verifier for this kind, it drops the
+		// transaction.
+		if !exists {
+			txs = append(txs[:i], txs[i+1:]...)
+			continue
 		}
+		txs[i].Valid = f(cdb, &txs[i])
 	}
 }
 
