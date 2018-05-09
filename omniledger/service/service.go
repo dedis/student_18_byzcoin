@@ -482,10 +482,8 @@ func (s *Service) verifySkipBlock(newID []byte, newSB *skipchain.SkipBlock) bool
 	for _, tx := range txs {
 		f, exists := s.verifiers[string(tx.Kind)]
 		if !exists || tx.Valid != f(cdb, &tx) {
-			log.Errorf("disagree on %+v, function exists: %t", tx, exists)
 			return false
 		}
-		log.Lvlf2("agree on %+v, function exists: %t", tx, exists)
 	}
 	return true
 }
