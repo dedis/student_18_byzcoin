@@ -22,12 +22,11 @@ import (
 	"gopkg.in/dedis/onet.v2/log"
 	cli "gopkg.in/urfave/cli.v1"
 
-	// Import your service:
+	// Import services from this repo.
+	_ "github.com/dedis/student_18_omniledger/eventlog"
 	_ "github.com/dedis/student_18_omniledger/omniledger/service"
+
 	// Here you can import any other needed service for your conode.
-	// For example, if your service needs cosi available in the server
-	// as well, uncomment this:
-	_ "gopkg.in/dedis/cothority.v2/skipchain"
 	_ "gopkg.in/dedis/cothority.v2/status/service"
 )
 
