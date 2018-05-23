@@ -10,7 +10,8 @@ MAILCMD=/usr/bin/mail
 
 # Find out which package this copy of run_conode.sh is checked into.
 dir=$(dirname $(realpath $0))
-pkg=`cd $dir && go list ..`
+pkg=`cd $dir && go list .`
+pkg=`dirname $pkg`
 all_args="$*"
 
 # increment version sub if there's something about cothority that changes

@@ -27,7 +27,6 @@ import (
 	// Here you can import any other needed service for your conode.
 	// For example, if your service needs cosi available in the server
 	// as well, uncomment this:
-	_ "gopkg.in/dedis/cothority.v2/identity"
 	_ "gopkg.in/dedis/cothority.v2/skipchain"
 	_ "gopkg.in/dedis/cothority.v2/status/service"
 )
