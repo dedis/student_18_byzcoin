@@ -16,12 +16,12 @@ import (
 	"os"
 	"path"
 
-	"gopkg.in/dedis/cothority.v2"
 	"gopkg.in/dedis/onet.v2/app"
 	"gopkg.in/dedis/onet.v2/cfgpath"
 	"gopkg.in/dedis/onet.v2/log"
 	cli "gopkg.in/urfave/cli.v1"
 
+	"gopkg.in/dedis/cothority.v2"
 	// Import your service:
 	_ "github.com/dedis/student_18_omniledger/omniledger/service"
 	// Here you can import any other needed service for your conode.
@@ -33,7 +33,7 @@ import (
 
 func main() {
 	cliApp := cli.NewApp()
-	cliApp.Name = "lleap"
+	cliApp.Name = "omniledger"
 	cliApp.Usage = "basic file for an app"
 	cliApp.Version = "0.1"
 
@@ -49,7 +49,7 @@ func main() {
 				if c.String("debug") != "" {
 					log.Fatal("[-] Debug option cannot be used for the 'setup' command")
 				}
-				app.InteractiveConfig(cothority.Suite, "lleap")
+				app.InteractiveConfig(cothority.Suite, "omniledger")
 				return nil
 			},
 		},
@@ -69,7 +69,7 @@ func main() {
 		},
 		cli.StringFlag{
 			Name:  "config, c",
-			Value: path.Join(cfgpath.GetConfigPath("lleap"), "config.bin"),
+			Value: path.Join(cfgpath.GetConfigPath("omniledger"), "config.bin"),
 			Usage: "Configuration file of the server",
 		},
 	}
