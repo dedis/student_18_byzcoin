@@ -138,7 +138,7 @@ runLocal(){
 		if [ ! -d $co ]; then
 			echo -e "localhost:$((7000 + 2 * $n))\nConode_$n\n$co" | conode setup
 		fi
-		conode -d $DEBUG -c $co/private.toml server &
+		conode -d $DEBUG -c $co/private.toml server 2>&1 | tee -a $co/log &
 		cat $co/public.toml >> public.toml
 	done
 	sleep 1
