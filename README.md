@@ -1,4 +1,4 @@
-# OmniLedger
+# ByzCoin - previously OmniLedger
 
 This repo is the development of the omniledger project, that aims to bring
 skipchains to a new level of performance and functionality. Broadly speaking,
